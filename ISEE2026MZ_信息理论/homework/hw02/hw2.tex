@@ -1,0 +1,691 @@
+\documentclass[UTF8,11pt,a4paper]{ctexart}
+
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb,mathtools,mathrsfs}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{fancyhdr}
+
+\setcounter{MaxMatrixCols}{20}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{信息理论第二次作业}
+\cfoot{\thepage}
+\setlength{\headheight}{14pt}
+
+\setlist[enumerate]{leftmargin=2.2em}
+
+\newtcolorbox{problem}[1]{
+  enhanced,
+  breakable,
+  colback=white,
+  colframe=MidnightBlue!75,
+  colbacktitle=MidnightBlue,
+  coltitle=white,
+  boxrule=0.7pt,
+  arc=1.5mm,
+  left=5mm,right=5mm,top=3mm,bottom=3mm,
+  title=\textbf{#1}
+}
+
+\begin{document}
+
+\begin{center}
+  {\zihao{3}\bfseries 信息理论第二次作业}\\[0.4em]
+  {\small 以下各题对数均取 $\log_2$}
+\end{center}
+
+\vspace{0.8em}
+
+\begin{problem}{3.1}
+试证明最长长度不大于 \(N\) 的 \(D\) 元不等长码至多有 \(\frac{D(D^N - 1)}{D-1}\) 个码字。
+\end{problem}
+\noindent\textbf{解：}
+设码符号表为
+\[
+\mathcal{D}=\{0,1,\dots,D-1\}.
+\]
+长度为 $n$ 的 $D$ 元序列共有 $D^n$ 个。因此，长度不大于 $N$ 且长度至少为 $1$ 的所有可能码字总数为
+\[
+D+D^2+\cdots+D^N.
+\]
+一个码中不同消息对应的码字必须互不相同，所以码字数不可能超过所有可用字符串的总数。于是
+\[
+M\le \sum_{n=1}^{N}D^n
+=D\frac{D^N-1}{D-1}
+=\frac{D(D^N-1)}{D-1}.
+\]
+故最长长度不大于 $N$ 的 $D$ 元不等长码至多有
+\[
+\frac{D(D^N - 1)}{D-1}
+\]
+个码字。
+\vspace{0.8em}
+
+\begin{problem}{3.3}
+下面哪些码是唯一可译的？
+\begin{enumerate}[label=\textnormal{(\alph*)}]
+  \item \(\{0,10,11\}\)
+  \item \(\{0,01,11\}\)
+  \item \(\{0,01,10\}\)
+  \item \(\{0,01\}\)
+  \item \(\{00,01,10,11\}\)
+  \item \(\{110,11,10\}\)
+  \item \(\{110,100,00,10\}\)
+\end{enumerate}
+\end{problem}
+\noindent\textbf{解：}
+采用 Sardinas-Patterson 判别法。记由前缀关系产生的后缀集合为 $S_1,S_2,\dots$。若某个 $S_k$ 中出现原码字，则码不是唯一可译的；若后缀集合为空或进入循环且从未出现原码字，则码是唯一可译的。
+
+\begin{enumerate}[label=\textnormal{(\alph*)}]
+  \item \(\{0,10,11\}\) 是即时码，因为没有一个码字是另一个码字的前缀，所以是唯一可译码。
+
+  \item \(\{0,01,11\}\) 中有
+  \[
+  S_1=\{1\},\qquad S_2=\{1\}=S_1.
+  \]
+  后缀集合进入循环，且没有出现原码字，所以是唯一可译码。
+
+  \item \(\{0,01,10\}\) 中有
+  \[
+  S_1=\{1\},\qquad S_2=\{0\}.
+  \]
+  因为 $0$ 是原码字，所以不是唯一可译码。事实上
+  \[
+  010=0\,10=01\,0,
+  \]
+  存在两种不同译法。
+
+  \item \(\{0,01\}\) 中有
+  \[
+  S_1=\{1\},\qquad S_2=\varnothing.
+  \]
+  后缀集合为空，所以是唯一可译码。
+
+  \item \(\{00,01,10,11\}\) 是等长码，所以是唯一可译码。
+
+  \item \(\{110,11,10\}\) 中有
+  \[
+  S_1=\{0\},\qquad S_2=\varnothing.
+  \]
+  后缀集合为空，所以是唯一可译码。
+
+  \item \(\{110,100,00,10\}\) 中有
+  \[
+  S_1=\{0\},\qquad S_2=\{0\}=S_1.
+  \]
+  后缀集合进入循环，且没有出现原码字，所以是唯一可译码。
+\end{enumerate}
+
+综上，唯一可译码为 (a)、(b)、(d)、(e)、(f)、(g)；不是唯一可译码的是 (c)。
+\vspace{0.8em}
+
+\begin{problem}{3.4}
+确定下面码是否唯一可译，若不是则构造一个模糊序列。
+
+(a)
+\[
+\begin{array}{c|cccccccc}
+& x_1 & x_2 & x_3 & x_4 & x_5 & x_6 & x_7 & x_8\\ \hline
+& 010 & 0001 & 0110 & 1100 & 00011 & 00110 & 11110 & 101011
+\end{array}
+\]
+
+(b)
+\[
+\begin{array}{c|cccccccc}
+& x_1 & x_2 & x_3 & x_4 & x_5 & x_6 & x_7 & x_8\\ \hline
+& abc & abcd & e & dba & bace & ceac & ceab & eabd
+\end{array}
+\]
+\end{problem}
+\noindent\textbf{解：}
+\begin{enumerate}[label=\textnormal{(\alph*)}]
+  \item 记码字集合为
+  \[
+  C=\{010,0001,0110,1100,00011,00110,11110,101011\}.
+  \]
+  用 Sardinas-Patterson 判别法计算后缀集合：
+  \[
+  S_1=\{1\},
+  \]
+  \[
+  S_2=\{100,1110,01011\},
+  \]
+  \[
+  S_3=\{11\},
+  \]
+  \[
+  S_4=\{110,00\},
+  \]
+  \[
+  S_5=\{0,011,01,110\},
+  \]
+  \[
+  S_6=\{0110,110,0011,001,0,10\}.
+  \]
+  因为
+  \[
+  0110=x_3\in C
+  \]
+  出现在后缀集合中，所以该码不是唯一可译码。
+
+  一个模糊序列为
+  \[
+  000110101111000110.
+  \]
+  它有两种不同分解：
+  \[
+  000110101111000110
+  =0001\,101011\,1100\,0110
+  =x_2x_8x_4x_3,
+  \]
+  同时
+  \[
+  000110101111000110
+  =00011\,010\,11110\,00110
+  =x_5x_1x_7x_6.
+  \]
+  因此它是一个模糊序列。
+
+  \item 记码字集合为
+  \[
+  C=\{abc,abcd,e,dba,bace,ceac,ceab,eabd\}.
+  \]
+  用 Sardinas-Patterson 判别法计算：
+  \[
+  S_1=\{d,abd\},
+  \]
+  \[
+  S_2=\{ba\},
+  \]
+  \[
+  S_3=\{ce\},
+  \]
+  \[
+  S_4=\{ac,ab\},
+  \]
+  \[
+  S_5=\{c,cd\},
+  \]
+  \[
+  S_6=\{eac,eab\},
+  \]
+  \[
+  S_7=\{ac,ab,d\},
+  \]
+  \[
+  S_8=\{c,cd,ba\},
+  \]
+  \[
+  S_9=\{eac,eab,ce\},
+  \]
+  \[
+  S_{10}=\{ac,ab,d\}=S_7.
+  \]
+  后缀集合从 $S_7$ 开始进入循环，且没有任何一个 $S_k$ 含有原码字，所以该码是唯一可译码。
+\end{enumerate}
+\vspace{0.8em}
+
+\begin{problem}{3.6}
+令 DMS 为
+\[
+U = \begin{pmatrix}
+a_1 & a_2 & a_3 & a_4 & a_5 & a_6 & a_7 & a_8 & a_9 & a_{10} \\
+0.16 & 0.14 & 0.13 & 0.12 & 0.1 & 0.09 & 0.08 & 0.07 & 0.06 & 0.05
+\end{pmatrix}
+\]
+
+(a) 求二元 Huffman 码，计算 \(\bar{n}\) 和 \(\eta\)。
+(b) 求三元 Huffman 码，计算 \(\bar{n}\) 和 \(\eta\)。
+\end{problem}
+\noindent\textbf{解：}
+信源熵为
+\[
+H(U)=-\sum_{i=1}^{10}p_i\log p_i\approx 3.23438\ \text{bit/符号}.
+\]
+
+\begin{enumerate}[label=\textnormal{(\alph*)}]
+  \item 按二元 Huffman 编码法，每次合并两个最小概率，可得到一种二元 Huffman 码如下：
+  \[
+  \begin{array}{c|cccccccccc}
+  \text{信源符号} & a_1 & a_2 & a_3 & a_4 & a_5 & a_6 & a_7 & a_8 & a_9 & a_{10}\\ \hline
+  p_i & 0.16 & 0.14 & 0.13 & 0.12 & 0.10 & 0.09 & 0.08 & 0.07 & 0.06 & 0.05\\
+  \text{码字} & 111 & 101 & 100 & 011 & 001 & 000 & 1101 & 1100 & 0101 & 0100\\
+  n_i & 3 & 3 & 3 & 3 & 3 & 3 & 4 & 4 & 4 & 4
+  \end{array}
+  \]
+  因此平均码长为
+  \[
+  \bar n_2=\sum_{i=1}^{10}p_in_i
+  =3(0.16+0.14+0.13+0.12+0.10+0.09)
+  +4(0.08+0.07+0.06+0.05).
+  \]
+  即
+  \[
+  \bar n_2=3.26.
+  \]
+  二元码的编码效率为
+  \[
+  \eta_2=\frac{H(U)}{\bar n_2}
+  =\frac{3.23438}{3.26}
+  \approx 0.99214.
+  \]
+
+  \item 三元 Huffman 编码需要每次合并 $3$ 个结点。因为信源符号数 $10$ 不满足
+  \[
+  10\equiv 1 \pmod{3-1},
+  \]
+  所以先补充一个概率为 $0$ 的虚符号，使总符号数变为 $11$。每次合并三个最小概率，可得到一种三元 Huffman 码如下：
+  \[
+  \begin{array}{c|cccccccccc}
+  \text{信源符号} & a_1 & a_2 & a_3 & a_4 & a_5 & a_6 & a_7 & a_8 & a_9 & a_{10}\\ \hline
+  p_i & 0.16 & 0.14 & 0.13 & 0.12 & 0.10 & 0.09 & 0.08 & 0.07 & 0.06 & 0.05\\
+  \text{码字} & 22 & 21 & 20 & 12 & 10 & 02 & 01 & 00 & 112 & 111\\
+  n_i & 2 & 2 & 2 & 2 & 2 & 2 & 2 & 2 & 3 & 3
+  \end{array}
+  \]
+  因此平均码长为
+  \[
+  \bar n_3=\sum_{i=1}^{10}p_in_i
+  =2(0.16+0.14+0.13+0.12+0.10+0.09+0.08+0.07)
+  +3(0.06+0.05).
+  \]
+  即
+  \[
+  \bar n_3=2.11.
+  \]
+  三元码的效率为
+  \[
+  \eta_3=\frac{H(U)}{\bar n_3\log 3}
+  =\frac{3.23438}{2.11\log 3}
+  \approx 0.96714.
+  \]
+  等价地，也可先把信源熵换成三元单位：
+  \[
+  H_3(U)=\frac{H(U)}{\log 3}\approx 2.04067,
+  \]
+  从而
+  \[
+  \eta_3=\frac{H_3(U)}{\bar n_3}\approx \frac{2.04067}{2.11}\approx 0.96714.
+  \]
+\end{enumerate}
+
+\vspace{0.8em}
+
+\begin{problem}{3.10}
+考虑一个概率分布为
+\[
+\begin{pmatrix}
+x_1 & x_2 & x_3 & x_4 \\
+\frac{1}{3} & \frac{1}{3} & \frac{1}{4} & \frac{1}{12}
+\end{pmatrix}
+\]
+的随机变量。
+
+(a) 对该随机变量构成一个 Huffman 码。
+(b) 证明存在 2 个不同的最佳码长集合，即证明码长集合为 $(1,2,3,3)$ 和 $(2,2,2,2)$ 都是最佳的。
+(c) 证明某些符号的最佳码字长度可能超出 Shannon 编码码长 $\left\lceil \log \frac{1}{p(x)} \right\rceil$。
+\end{problem}
+\noindent\textbf{解：}
+\begin{enumerate}[label=\textnormal{(\alph*)}]
+  \item 按概率从小到大合并：
+  \[
+  \frac{1}{12}+\frac{1}{4}=\frac{1}{3},\qquad
+  \frac{1}{3}+\frac{1}{3}=\frac{2}{3},\qquad
+  \frac{1}{3}+\frac{2}{3}=1.
+  \]
+  因此可得一种 Huffman 码为
+  \[
+  \begin{array}{c|cccc}
+  \text{信源符号} & x_1 & x_2 & x_3 & x_4\\ \hline
+  p_i & \frac13 & \frac13 & \frac14 & \frac1{12}\\
+  \text{码字} & 0 & 10 & 110 & 111\\
+  n_i & 1 & 2 & 3 & 3
+  \end{array}
+  \]
+  平均码长为
+  \[
+  \bar n
+  =\frac13\cdot 1+\frac13\cdot 2+\frac14\cdot 3+\frac1{12}\cdot 3
+  =2.
+  \]
+
+  \item 先证明任意二元唯一可译码的平均码长都不小于 $2$。由 Kraft 不等式，任意唯一可译码的码长 $n_i$ 必须满足
+  \[
+  \sum_i2^{-n_i}\le 1.
+  \]
+  若没有长度为 $1$ 的码字，则所有码长都至少为 $2$，显然
+  \[
+  \bar n\ge 2.
+  \]
+  若有一个长度为 $1$ 的码字，则二元码中最多只能有一个长度为 $1$ 的码字。为了使平均码长尽量小，应把这个最短码字分给概率最大的符号。剩下三个码字的 Kraft 容量至多为
+  \[
+  1-\frac12=\frac12.
+  \]
+  因此剩下三个码字中至多有一个码字长度为 $2$；否则两个长度为 $2$ 的码字已经占满容量 $\frac12$，无法再放入第三个码字。于是剩下三个码字的最短可能码长为 $2,3,3$。将它们按概率从大到小分配时，最小平均码长为
+  \[
+  \frac13\cdot 1+\frac13\cdot 2+\frac14\cdot 3+\frac1{12}\cdot 3=2.
+  \]
+  故任意唯一可译码都有
+  \[
+  \bar n\ge 2.
+  \]
+
+  另一方面，码长集合 $(1,2,3,3)$ 对应上面 (a) 中的 Huffman 码，平均码长为 $2$；码长集合 $(2,2,2,2)$ 可取等长码
+  \[
+  x_1\mapsto 00,\quad x_2\mapsto 01,\quad x_3\mapsto 10,\quad x_4\mapsto 11,
+  \]
+  其平均码长也为
+  \[
+  \bar n=2.
+  \]
+  因为二者都达到最小可能平均码长 $2$，所以 $(1,2,3,3)$ 和 $(2,2,2,2)$ 都是最佳码长集合。
+
+  \item 在 (a) 的最佳 Huffman 码中，符号 $x_3$ 的码长为
+  \[
+  n_3=3.
+  \]
+  但
+  \[
+  \left\lceil \log\frac1{p(x_3)}\right\rceil
+  =
+  \left\lceil \log 4\right\rceil
+  =2.
+  \]
+  因而在某个最佳码中，符号 $x_3$ 的最佳码字长度满足
+  \[
+  n_3=3>2=\left\lceil \log\frac1{p(x_3)}\right\rceil.
+  \]
+  这说明 Shannon 编码码长只是可构造码长的一种逐符号上界，并不要求每一个最佳码中每个符号的码长都不超过该 Shannon 码长。
+\end{enumerate}
+
+\vspace{0.8em}
+
+\begin{problem}{3.11}
+令 DMS 为
+\[
+\begingroup
+\setlength{\arraycolsep}{3pt}
+U = \begin{pmatrix}
+x_1 & x_2 & x_3 & x_4 & x_5 & x_6 & x_7 & x_8 & x_9 & x_{10} & x_{11} & x_{12} & x_{13} \\
+0.2 & 0.18 & 0.1 & 0.1 & 0.1 & 0.061 & 0.059 & 0.04 & 0.04 & 0.04 & 0.04 & 0.03 & 0.01
+\end{pmatrix}
+\endgroup
+\]
+
+(a) 求二元 Huffman 码，计算 $\bar{n}$ 和 $\eta$。
+(b) 求三元 Huffman 码，计算 $\bar{n}$ 和 $\eta$。
+\end{problem}
+\noindent\textbf{解：}
+信源熵为
+\[
+H(U)=-\sum_{i=1}^{13}p_i\log p_i\approx 3.35454\ \text{bit/符号}.
+\]
+
+\begin{enumerate}[label=\textnormal{(\alph*)}]
+  \item 按二元 Huffman 编码法，每次合并两个最小概率，可得到一种二元 Huffman 码如下：
+  \[
+  \begin{array}{c|ccccccc}
+  \text{信源符号} & x_1 & x_2 & x_3 & x_4 & x_5 & x_6 & x_7\\ \hline
+  p_i & 0.20 & 0.18 & 0.10 & 0.10 & 0.10 & 0.061 & 0.059\\
+  \text{码字} & 00 & 111 & 010 & 011 & 100 & 1010 & 11011\\
+  n_i & 2 & 3 & 3 & 3 & 3 & 4 & 5
+  \end{array}
+  \]
+  \[
+  \begin{array}{c|cccccc}
+  \text{信源符号} & x_8 & x_9 & x_{10} & x_{11} & x_{12} & x_{13}\\ \hline
+  p_i & 0.04 & 0.04 & 0.04 & 0.04 & 0.03 & 0.01\\
+  \text{码字} & 10110 & 10111 & 11000 & 11001 & 110101 & 110100\\
+  n_i & 5 & 5 & 5 & 5 & 6 & 6
+  \end{array}
+  \]
+  因此平均码长为
+  \[
+  \begin{aligned}
+  \bar n_2
+  &=2(0.20)+3(0.18+0.10+0.10+0.10)+4(0.061)\\
+  &\quad +5(0.059+0.04+0.04+0.04+0.04)+6(0.03+0.01)\\
+  &=3.419.
+  \end{aligned}
+  \]
+  二元码的编码效率为
+  \[
+  \eta_2=\frac{H(U)}{\bar n_2}
+  =\frac{3.35454}{3.419}
+  \approx 0.98115.
+  \]
+
+  \item 三元 Huffman 编码需要每次合并 $3$ 个结点。由于
+  \[
+  13\equiv 1 \pmod{3-1},
+  \]
+  不需要补充虚符号。每次合并三个最小概率，可得到一种三元 Huffman 码如下：
+  \[
+  \begin{array}{c|ccccccc}
+  \text{信源符号} & x_1 & x_2 & x_3 & x_4 & x_5 & x_6 & x_7\\ \hline
+  p_i & 0.20 & 0.18 & 0.10 & 0.10 & 0.10 & 0.061 & 0.059\\
+  \text{码字} & 22 & 21 & 10 & 11 & 12 & 01 & 00\\
+  n_i & 2 & 2 & 2 & 2 & 2 & 2 & 2
+  \end{array}
+  \]
+  \[
+  \begin{array}{c|cccccc}
+  \text{信源符号} & x_8 & x_9 & x_{10} & x_{11} & x_{12} & x_{13}\\ \hline
+  p_i & 0.04 & 0.04 & 0.04 & 0.04 & 0.03 & 0.01\\
+  \text{码字} & 022 & 200 & 201 & 202 & 021 & 020\\
+  n_i & 3 & 3 & 3 & 3 & 3 & 3
+  \end{array}
+  \]
+  因此平均码长为
+  \[
+  \begin{aligned}
+  \bar n_3
+  &=2(0.20+0.18+0.10+0.10+0.10+0.061+0.059)\\
+  &\quad +3(0.04+0.04+0.04+0.04+0.03+0.01)\\
+  &=2.20.
+  \end{aligned}
+  \]
+  三元码的效率为
+  \[
+  \eta_3=\frac{H(U)}{\bar n_3\log 3}
+  =\frac{3.35454}{2.20\log 3}
+  \approx 0.96204.
+  \]
+  等价地，若以三元单位表示信源熵，
+  \[
+  H_3(U)=\frac{H(U)}{\log 3}\approx 2.11648,
+  \]
+  则
+  \[
+  \eta_3=\frac{H_3(U)}{\bar n_3}
+  \approx \frac{2.11648}{2.20}\approx 0.96204.
+  \]
+\end{enumerate}
+
+\vspace{0.8em}
+
+\begin{problem}{3.16}
+设一个马尔可夫信源，其状态图如习题 3.16 图所示。
+
+（a）求稳态下各状态概率 \( q(i) \)，以及各字母 \( a_i \) 的出现概率，\( i=1,2,3 \)。
+（b）求 \( H(U|s_i) \)，\( i=1,2,3 \)。
+（c）求 \( H_\infty(U) \)。
+（d）对各状态 \( S_j \) 求最佳二元码。
+（e）计算平均码长。
+\end{problem}
+\noindent\textbf{解：}
+由题图读得状态转移关系为
+\[
+S_1\to S_2:\ a_1,\frac12;\ a_2,\frac14,
+\qquad
+S_1\to S_3:\ a_3,\frac14,
+\]
+\[
+S_2\to S_2:\ a_2,\frac12,
+\qquad
+S_2\to S_3:\ a_3,\frac12,
+\qquad
+S_3\to S_1:\ a_1,1.
+\]
+
+\begin{enumerate}[label=\textnormal{(\alph*)}]
+  \item 状态转移矩阵为
+  \[
+  \boldsymbol{P}=
+  \begin{pmatrix}
+  0 & \frac34 & \frac14\\
+  0 & \frac12 & \frac12\\
+  1 & 0 & 0
+  \end{pmatrix}.
+  \]
+  设稳态概率为
+  \[
+  \boldsymbol{q}=(q_1,q_2,q_3),
+  \]
+  则
+  \[
+  \boldsymbol{q}=\boldsymbol{q}\boldsymbol{P},\qquad
+  q_1+q_2+q_3=1.
+  \]
+  由此解得
+  \[
+  q_1=\frac27,\qquad q_2=\frac37,\qquad q_3=\frac27.
+  \]
+  即
+  \[
+  q(S_1)=\frac27,\qquad q(S_2)=\frac37,\qquad q(S_3)=\frac27.
+  \]
+
+  各字母出现概率为
+  \[
+  P(a_1)=q_1\cdot\frac12+q_3\cdot 1
+  =\frac27\cdot\frac12+\frac27
+  =\frac37,
+  \]
+  \[
+  P(a_2)=q_1\cdot\frac14+q_2\cdot\frac12
+  =\frac27\cdot\frac14+\frac37\cdot\frac12
+  =\frac27,
+  \]
+  \[
+  P(a_3)=q_1\cdot\frac14+q_2\cdot\frac12
+  =\frac27\cdot\frac14+\frac37\cdot\frac12
+  =\frac27.
+  \]
+  所以
+  \[
+  P(a_1)=\frac37,\qquad P(a_2)=\frac27,\qquad P(a_3)=\frac27.
+  \]
+
+  \item 状态 $S_1$ 下的输出分布为
+  \[
+  P(a_1|S_1)=\frac12,\qquad
+  P(a_2|S_1)=\frac14,\qquad
+  P(a_3|S_1)=\frac14.
+  \]
+  因此
+  \[
+  H(U|S_1)
+  =-\frac12\log\frac12-\frac14\log\frac14-\frac14\log\frac14
+  =\frac32.
+  \]
+  状态 $S_2$ 下
+  \[
+  P(a_2|S_2)=\frac12,\qquad P(a_3|S_2)=\frac12,
+  \]
+  所以
+  \[
+  H(U|S_2)=1.
+  \]
+  状态 $S_3$ 下
+  \[
+  P(a_1|S_3)=1,
+  \]
+  所以
+  \[
+  H(U|S_3)=0.
+  \]
+  综上，
+  \[
+  H(U|S_1)=\frac32,\qquad H(U|S_2)=1,\qquad H(U|S_3)=0.
+  \]
+
+  \item 马尔可夫信源熵率为
+  \[
+  H_\infty(U)=\sum_{i=1}^{3}q_iH(U|S_i).
+  \]
+  代入上面的结果，得
+  \[
+  H_\infty(U)
+  =
+  \frac27\cdot\frac32+\frac37\cdot 1+\frac27\cdot 0
+  =\frac37+\frac37=\frac67.
+  \]
+  因此
+  \[
+  H_\infty(U)=\frac67\ \text{bit/符号}.
+  \]
+
+  \item 对每个状态分别作最佳二元码。
+
+  状态 $S_1$ 下，输出分布为
+  \[
+  a_1:\frac12,\qquad a_2:\frac14,\qquad a_3:\frac14.
+  \]
+  可取最佳二元码
+  \[
+  a_1:0,\qquad a_2:10,\qquad a_3:11,
+  \]
+  平均码长为
+  \[
+  L_1=\frac12\cdot1+\frac14\cdot2+\frac14\cdot2=\frac32.
+  \]
+
+  状态 $S_2$ 下，输出分布为
+  \[
+  a_2:\frac12,\qquad a_3:\frac12.
+  \]
+  可取最佳二元码
+  \[
+  a_2:0,\qquad a_3:1,
+  \]
+  平均码长为
+  \[
+  L_2=1.
+  \]
+
+  状态 $S_3$ 下只有
+  \[
+  a_1:1.
+  \]
+  若允许空码，则可取
+  \[
+  a_1:\varnothing,
+  \]
+  平均码长为
+  \[
+  L_3=0.
+  \]
+
+  \item 允许空码时，总平均码长为
+  \[
+  \bar L=\sum_{i=1}^{3}q_iL_i
+  =
+  \frac27\cdot\frac32+\frac37\cdot1+\frac27\cdot0
+  =\frac67.
+  \]
+  因此
+  \[
+  \bar L=\frac67\ \text{bit/符号}.
+  \]
+  此时
+  \[
+  \bar L=H_\infty(U)=\frac67.
+  \]
+\end{enumerate}
+
+\end{document}
