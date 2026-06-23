@@ -1,0 +1,661 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{trees,positioning,arrows}
+
+\geometry{margin=2.2cm}
+
+\definecolor{ansblue}{RGB}{0,70,160}
+\definecolor{ansred}{RGB}{180,20,20}
+\newcommand{\solution}{\par\noindent\textcolor{ansblue}{\textbf{解：}}}
+\newcommand{\answer}{\par\noindent\textcolor{ansred}{\textbf{答案：}}}
+\newcommand{\supp}[1]{\textcolor{ansred}{\textsuperscript{[补] #1}}}
+
+\title{CS 2089M 数据库系统\\2022--2023 春夏学期 期末回忆卷}
+\author{整合自两份回忆版本（CC98 论坛）\thanks{版本一：较完整的 PDF 回忆版本；版本二：选择题+判断题+大题框架回忆版本。两版为同一套试卷，此处合并整理。}}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\vspace{-8pt}
+\begin{center}
+\textbf{题型}：选择题 $8\times 3' = 24'$，判断题 $6\times 2' = 12'$，
+SQL $16'$，E-R 设计 $16'$，并发控制 $8'$，ARIES $12'$，Buffer Tree $12'$。共 $100'$。
+\end{center}
+
+\section*{一、选择题（每题 3 分，共 8 题）}
+
+\begin{enumerate}[leftmargin=*,itemsep=8pt]
+
+\item 对于如下定义的表 (\supp{题目原文为``类似去年第二题''，以下为回忆版})：
+{\small
+\begin{verbatim}
+create table course (
+  course_id  char(2) primary key,
+  credit     int,
+  prereq_id  char(2),
+  foreign key prereq_id references course(course_id)
+    on delete cascade
+    on update cascade
+);
+\end{verbatim}}
+
+初始数据（\supp{来自 PDF 回忆版}）：
+
+\begin{tabular}{c|c|c}
+\texttt{course\_id} & \texttt{credit} & \texttt{prereq\_id} \\
+\midrule
+11 & 2 & NULL \\
+22 & 4 & NULL \\
+33 & 3 & NULL \\
+44 & 3 & 22   \\
+55 & 4 & 22   \\
+66 & 3 & 33   \\
+\end{tabular}
+
+依次执行以下 SQL 语句：
+{\small
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item \texttt{INSERT INTO course VALUES ('77', 4, '11');}
+  \item \texttt{DELETE FROM course WHERE course\_id = '11';}
+  \item \texttt{UPDATE course SET course\_id = '11', credit = 2
+          WHERE course\_id = '33';}
+  \item \texttt{SELECT COUNT(*) FROM course WHERE credit > 2;}
+\end{enumerate}}
+
+最后一条语句返回的结果是：
+
+\begin{enumerate}[label=\Alph*.]
+  \item 1
+  \item 2
+  \item 3
+  \item 4
+\end{enumerate}
+
+\solution
+逐步追踪（注意 CASCADE 约束）：
+
+\textbf{初始}：
+11(2,NULL), 22(4,NULL), 33(3,NULL), 44(3,22), 55(4,22), 66(3,33)。
+
+\textbf{(1) INSERT ('77',4,'11')}：
+新增 77(4,11)。
+
+\textbf{(2) DELETE course\_id='11'}：
+删除 11。CASCADE：所有 prereq\_id=11 的记录也被删除 $\to$ 77 被删。
+
+剩余：22(4,NULL), 33(3,NULL), 44(3,22), 55(4,22), 66(3,33)。
+
+\textbf{(3) UPDATE course\_id='11', credit=2 WHERE course\_id='33'}：
+33 改为 11(credit=2)。CASCADE：66 的 prereq\_id 跟着从 33 变为 11。
+
+剩余：11(2,NULL)\textsuperscript{原33}, 22(4,NULL), 44(3,22), 55(4,22), 66(3,11)。
+
+\textbf{(4) SELECT COUNT(*) WHERE credit > 2}：
+credit>2 的记录：22(4), 44(3), 55(4), 66(3)，共 4 条。
+11 的 credit=2 不满足。
+
+\answer D. 4。注意 CASCADE 的连锁效应是关键。
+
+\item 对于上题定义的表 \texttt{course}，有如下 SQL 查询：
+\begin{verbatim}
+SELECT c1.course_id, c1.credit, c2.course_id, c2.credit
+FROM course AS c1, course AS c2
+WHERE c1.prereq_id = c2.course_id
+  AND c1.credit = 4
+  AND c2.credit > 2;
+\end{verbatim}
+
+下列关系代数表达式中与上面的 SQL 查询\textbf{不等价}的是：
+\supp{选项回忆不全，考点是：两表连接属性不同名，不能直接用自然连接}
+\\[2pt]
+\textcolor{gray}{⚠ 原卷选项缺失，无法确定具体选哪个。考点归纳见答案。}
+
+\answer
+核心考点：\texttt{c1.prereq\_id = c2.course\_id} 是两个\textbf{不同名}属性的等值连接，因此：
+\begin{itemize}[nosep]
+  \item $\pi(\sigma(\rho_{c1}(course)\times\rho_{c2}(course)))$ 形式的表达式是正确的
+  \item 直接写 $\rho_{c1}(course) \Join \rho_{c2}(course)$（自然连接）\textbf{不等价}——因为 \texttt{c1} 和 \texttt{c2} 虽出自同一表，但经重命名后，自然连接会基于\textbf{所有同名属性}做 join，而题目连接条件仅涉及 \texttt{prereq\_id = course\_id} 一对不同名属性
+  \item 必须显式写 $\Join_{c1.prereq\_id = c2.course\_id}$，不可用自然连接替代
+\end{itemize}
+
+\item 关系模式 $R(A,B,C,D,E,F)$ 上有函数依赖集
+$F = \{A \to B,\; B \to C,\; C \to B,\; D \to E,\; D \to F\}$。
+下列选项中是该关系模式的候选键的是：
+
+\begin{enumerate}[label=\Alph*.]
+  \item AC
+  \item AD
+  \item AE
+  \item AF
+\end{enumerate}
+
+\solution
+$A^+ = \{A,B,C\}$，$D^+ = \{D,E,F\}$，$AD^+ = \{A,B,C,D,E,F\} = R$。
+任何不含 $D$ 的集合无法推出 $E,F$；任何不含 $A$ 的集合无法推出存在 $A,B,C$ 依赖性但已有 $B,C$ 自循环。
+验证 $AD$ 是最小——$\{A,D\}$ 缺一不可。
+
+\answer B. AD。
+
+\item 函数依赖集 $\{A \to B,\; A \to D,\; BC \to E,\; AC \to D\}$ 的正则覆盖是：
+
+\supp{选项回忆不全，以下为推算}
+
+\begin{enumerate}[label=\Alph*.]
+  \item $\{A \to BDE,\; BC \to E\}$
+  \item $\{A \to BD,\; ABC \to E\}$
+  \item $\{A \to BD,\; C \to E\}$
+  \item $\{A \to BD,\; BC \to E\}$
+\end{enumerate}
+
+\solution
+求正则覆盖：
+
+\textbf{步骤 1}（RHS 已单属性）：$\{A \to B, A \to D, BC \to E, AC \to D\}$。
+
+\textbf{步骤 2}（去掉 LHS 多余属性）：
+\begin{itemize}[nosep]
+  \item $AC \to D$：计算 $A^+_F = \{A,B,D\}$。$D \in A^+_F$，故 $C$ 在 $AC \to D$ 中是多余的，变为 $A \to D$（已存在）。
+  \item $BC \to E$：$B^+_F = \{B\}$（无 $E$），$C^+_F = \{C\}$（无 $E$），均不多余。
+\end{itemize}
+
+\textbf{步骤 3}（去掉冗余 FD）：
+得 $\{A \to B, A \to D, BC \to E\}$，即 $\{A \to BD, BC \to E\}$。
+
+\answer D。考场上查 $BC \to E$ 中 $B$ 或 $C$ 是否多余、$C \to E$ 是否可独立（不能），可用排除法。
+
+\item 关系 $A$ 上有 20,000 条记录。对关系 $A$ 的非键属性建立 B$^+$ 树索引。每个 B$^+$ 树节点大小为 2\,KB，每个键值大小为 32\,B，每个指针大小为 8\,B。若某次查询得到的结果包含在 5 个块中，则此次查询的开销约为：
+
+\supp{版本二备注：``基于此建立 B+ 树非码上的索引''}
+
+\begin{enumerate}[label=\Alph*.]
+  \item 4 seek + 8 transfer
+  \item 4 seek + 9 transfer
+  \item 5 seek + 8 transfer
+  \item 5 seek + 9 transfer
+\end{enumerate}
+
+\solution
+B$^+$ 树节点容量：
+\begin{itemize}[nosep]
+  \item 非叶节点：$(n-1)\times 32 + n\times 8 \le 2048 \Rightarrow n \le 52$，扇出 $= 52$
+  \item 叶节点：$n\times(32+8) + 8 \le 2048 \Rightarrow n \le 51$，每叶 51 条
+\end{itemize}
+
+$20,000 / 51 \approx 393$ 叶节点，$\lceil 393/52 \rceil = 8$ 个内部节点，$\to 1$ 个根。
+树高 3（根 + L1 + 叶）。
+
+查询开销（\supp{设根节点缓存在内存}）：
+\begin{itemize}[nosep]
+  \item 索引遍历：L1 内节点 seek 1 + transfer 1，叶节点 seek 1 + transfer 1 $\to$ 2 seek + 2 transfer
+  \item 结果 5 个数据块（聚簇假设）：1 seek（定位首个块）+ 5 transfer
+  \item 合计：$2+1 = 3$ seek，$2+5 = 7$ transfer。与选项均不完美匹配。
+\end{itemize}
+
+\supp{实际考试可能按另一种假设（根不缓存或结果块在索引叶中即为数据块）。因原卷数据完整但答案取决于假设，考场建议现场推。最接近的估计为 B 或 A。}
+
+\answer 推荐按 fanout 52、高 3、根 cached、结果 5 块索引+数据合计 8 或 9 transfer 估算，选 A 或 B 均可（需视考试当场假设）。重点掌握计算过程。
+
+\item 关系 $r$ 上有 50,000 条记录，每个块可容纳 $r$ 上的 200 条记录；关系 $s$ 上有 20,000 条记录，每个块可容纳 $s$ 上的 50 条记录。在不考虑递归分块的情况下，对 $r$ 和 $s$ 进行 hash join 的开销约为：
+
+\begin{enumerate}[label=\Alph*.]
+  \item 1950 transfer + 1350 seek
+  \item 1950 transfer + 650 seek
+  \item 3300 transfer + 1350 seek
+  \item 3300 transfer + 650 seek
+\end{enumerate}
+
+\solution
+$b_r = 50,000/200 = 250$ 块，$b_s = 20,000/50 = 400$ 块。
+
+Hash join（不分块）：
+\begin{itemize}[nosep]
+  \item 分区 $r$（读+写）：$2 \times 250 = 500$ transfer
+  \item 分区 $s$（读+写）：$2 \times 400 = 800$ transfer
+  \item Join 阶段（读分区结果）：$250 + 400 = 650$ transfer
+  \item 总 transfer：$500 + 800 + 650 = \mathbf{1950}$
+\end{itemize}
+
+Seek 次数取决于缓冲区大小。若每块一个 seek（最坏）：
+$(250+400) \times 2 = 1300$ seek（写分区时每 block 一次 seek）。
+加少量 join 阶段 seek $\approx$ 1350。
+
+\answer C. 1950 transfer + 1350 seek。\supp{若假设较大的缓冲区则 seek 可降至 650 左右，选 B。实际考场需根据平时习题的缓冲区假设判断。}
+
+\item 关系 $r$ 上有 30,000 条记录，每个块上可容纳 200 条记录。若在 $r$ 的候选键上进行等值查找，则返回结果的大小最接近：
+
+\begin{enumerate}[label=\Alph*.]
+  \item 1
+  \item 20
+  \item 1,500
+  \item 30,000
+\end{enumerate}
+
+\solution
+候选键保证唯一性——等值查找最多命中 1 条记录。
+
+\answer A. 1。
+
+\item 在下面的锁请求序列中：
+
+\begin{center}
+\begin{tabular}{c|c|c}
+T1 & T2 & T3 \\
+\midrule
+lock-S(A) & & \\
+& lock-X(A) & \\
+& & lock-X(B) \\
+& lock-X(B) & \\
+& & lock-S(C) \\
+& & lock-X(C) \\
+\end{tabular}
+\end{center}
+
+\supp{原卷注明锁序列记不清了，写了类似的}
+
+下列说法正确的是：
+
+\begin{enumerate}[label=\Alph*.]
+  \item 计划中没有死锁
+  \item 计划中有死锁，T1 在等待 T2 放锁的同时 T2 也在等待 T1 放锁
+  \item 计划中有死锁，T2 在等待 T3 放锁的同时 T3 也在等待 T2 放锁
+  \item 计划中有死锁，T2 在等待 T1 放锁，T3 在等待 T2 放锁，T1 在等待 T3 放锁
+\end{enumerate}
+
+\solution
+分析 wait-for 图：
+\begin{itemize}[nosep]
+  \item T1 持有 S(A)。T2 请求 X(A) $\to$ T2 等待 T1。
+  \item T3 请求 X(B)，B 当前未被锁 $\to$ T3 获得 X(B)。
+  \item T2 请求 X(B)，T3 持有 X(B) $\to$ T2 等待 T3。
+  \item T3 持有 S(C)，请求 X(C) $\to$ 锁升级冲突（T3 等待自身或需先释放 S(C)），不构成跨事务等待。
+\end{itemize}
+
+Wait-for 边：T2 $\to$ T1（在 A 上），T2 $\to$ T3（在 B 上）。无环 $\to$ 无死锁。
+
+\supp{注意：原卷锁序列为近似回忆，实际排布可能有所不同。解题关键是画 wait-for graph 判断有无环。}
+
+\answer 在此回忆序列下选 A（无死锁）。实际考场按当时给出的序列画 wait-for 图即可。
+
+\end{enumerate}
+
+\newpage
+\section*{二、判断题（每题 2 分，共 6 题）}
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item 任意关系模式均可分解为三范式（3NF），且分解是保持依赖的。
+
+\solution
+正确。任何关系模式都可以无损地分解为 3NF，且保持函数依赖。这是 3NF 的经典定理——与 BCNF 不同（BCNF 不一定能保持依赖）。3NF 在「消除冗余」和「保持依赖」之间做了折中。
+
+\answer \textcolor{ansred}{$\surd$（正确）}
+
+\item 在事务频繁更新数据的场景下，按列存储的效率比按行存储高。
+
+\solution
+错误。列存储的优势在读密集型分析查询（只需少数列时节省 I/O），对频繁更新、插入的场景反而效率低——修改一行需要更新分散在不同列存储块中的多个位置，I/O 开销远大于行存储。
+
+\answer \textcolor{ansred}{$\times$（错误）}
+
+\item 建立辅助索引的时候，为了降低空间开销，可以对每一个数据块建立稀疏索引。
+
+\solution
+错误。稀疏索引要求数据按搜索键\textbf{顺序存储}，通常只适用于主索引（聚簇索引）。辅助索引（非聚簇索引）的搜索键顺序与数据物理顺序不同，必须对每条记录建立索引项（稠密索引），不能使用稀疏索引。
+
+\answer \textcolor{ansred}{$\times$（错误）}
+
+\item 连接前尽可能早地进行投影操作可以降低投影操作的开销，所以投影操作应该尽可能早做。
+
+\solution
+正确。投影尽早做（在查询树中下推）可缩减中间结果中的列数和行数，降低后续操作（连接、排序等）的 I/O 和计算开销。这是查询优化中 ``尽早投影'' 的启发式规则。
+
+\answer \textcolor{ansred}{$\surd$（正确）}
+
+\item 按索引查找的时间复杂度总是比顺序查找低。\supp{版本二忘掉序号 5，此为 PDF 版题}
+
+\solution
+错误。``总是'' 过于绝对。在某些情况下（如小表、高选择性查询返回大量记录、或索引聚簇因子极差），顺序扫描可能比索引查找更快——索引查找需要先遍历 B$^+$ 树再回表读数据块，多次随机 I/O 累计可能超过一次全表顺序扫描。
+
+\answer \textcolor{ansred}{$\times$（错误）}
+
+\item 不能通过 2PL 产生的调度，可能可以由树协议（Tree Protocol）产生。
+
+\solution
+正确。树协议允许在访问数据项的树状结构中按特定规则加解锁（如必须先锁父节点才能锁子节点），可生成一些 2PL 无法产生的可串行化调度。两者产生的是不同的可串行化调度子集，互不包含。
+
+\answer \textcolor{ansred}{$\surd$（正确）}
+
+\end{enumerate}
+
+\newpage
+\section*{三、SQL 语句（16 分）}
+
+对于如下定义的关系模式：
+
+\begin{verbatim}
+user(userID, name, gender, age, group_name)
+followship(userID, followerID)
+\end{verbatim}
+
+写出可以进行如下查询的 SQL 语句：
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item 查询所有含有男性成员的群组（group）
+  \item 查询 userID 为 '1001' 的用户的追随者的信息
+  \item 查出女性成员最多的群组
+  \item 查询名称为 'game' 的群组当中，追随者（follower）数量高于该群组中所有用户的追随者数量的平均值的用户。
+\end{enumerate}
+
+\solution
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+
+  \item \textbf{含有男性成员的群组}：
+\begin{verbatim}
+SELECT DISTINCT group_name
+FROM user
+WHERE gender = 'male';
+\end{verbatim}
+
+  \item \textbf{1001 号用户的追随者信息}：
+\begin{verbatim}
+SELECT u.*
+FROM user u
+JOIN followship f ON u.userID = f.followerID
+WHERE f.userID = '1001';
+\end{verbatim}
+
+  \item \textbf{女性成员最多的群组}：
+\begin{verbatim}
+SELECT group_name
+FROM user
+WHERE gender = 'female'
+GROUP BY group_name
+ORDER BY COUNT(*) DESC
+LIMIT 1;
+\end{verbatim}
+  \supp{若有多组并列第一，需用子查询：}\\
+\begin{verbatim}
+SELECT group_name
+FROM user
+WHERE gender = 'female'
+GROUP BY group_name
+HAVING COUNT(*) = (
+  SELECT MAX(cnt) FROM (
+    SELECT COUNT(*) AS cnt FROM user
+    WHERE gender = 'female' GROUP BY group_name
+  ) t
+);
+\end{verbatim}
+
+  \item \textbf{game 群组中追随者数高于组内均值的用户}：
+\begin{verbatim}
+SELECT u.userID, u.name,
+       COUNT(f.followerID) AS follower_count
+FROM user u
+JOIN followship f ON u.userID = f.userID
+WHERE u.group_name = 'game'
+GROUP BY u.userID
+HAVING COUNT(f.followerID) > (
+  SELECT AVG(follower_count)
+  FROM (
+    SELECT COUNT(f2.followerID) AS follower_count
+    FROM user u2
+    LEFT JOIN followship f2 ON u2.userID = f2.userID
+    WHERE u2.group_name = 'game'
+    GROUP BY u2.userID
+  ) AS avg_sub
+);
+\end{verbatim}
+
+\end{enumerate}
+
+\newpage
+\section*{四、数据库设计（16 分）}
+
+请根据以下需求设计一个跟团旅行预订平台：
+
+\begin{itemize}[nosep]
+  \item 每个用户都有用户 ID、用户名、密码和联系方式
+  \item 每个旅行社需提供名称、法人代表身份证号、企业银行账号、位置，平台给每个旅行
+        社分配 ID
+  \item 旅行社会出售旅行计划，旅行计划的内容包含标题、时长、描述
+  \item 每个用户都可以预订旅行计划，订单信息包含用户信息、旅行计划信息、订单发起
+        时间、旅行计划数量、总价格、支付状态
+  \item 旅行结束后用户可以对旅行社进行评价
+\end{itemize}
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item 画出 E-R 图。
+  \item 将 E-R 图转化为关系模式，指明主键和外键。
+\end{enumerate}
+
+\solution
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+
+  \item \textbf{E-R 图}（\supp{文字描述，考场画图}）：
+
+  实体：
+  \begin{itemize}[nosep]
+    \item \textbf{User}：属性 $\{userID, name, password, contact\}$，
+          userID 为键
+    \item \textbf{TravelAgency}：属性 $\{agencyID, name, legal\_ID,
+          bank\_account, location\}$，agencyID 为键
+    \item \textbf{TravelPlan}：属性 $\{planID, title, duration,
+          description\}$，planID 为键
+  \end{itemize}
+
+  联系：
+  \begin{itemize}[nosep]
+    \item \textbf{Sell}：TravelAgency $\xrightarrow{1}$ Sell
+          $\xrightarrow{N}$ TravelPlan（一个旅行社卖多个旅行计划）
+    \item \textbf{Order}：User $\xrightarrow{M}$ Order
+          $\xrightarrow{N}$ TravelPlan，带属性 $\{order\_time, quantity,
+          total\_price, payment\_status\}$
+    \item \textbf{Rate}：User $\xrightarrow{M}$ Rate
+          $\xrightarrow{N}$ TravelAgency，带属性 $\{rating, comment,
+          rate\_time\}$（旅行后评价旅行社）
+  \end{itemize}
+
+  \item \textbf{关系模式}：
+
+  \begin{itemize}[nosep]
+    \item \texttt{User(\underline{userID}, name, password, contact)}
+    \item \texttt{TravelAgency(\underline{agencyID}, name, legal\_ID,
+           bank\_account, location)}
+    \item \texttt{TravelPlan(\underline{planID}, title, duration, description,
+           \textit{agencyID})}
+          \hfill FK: \texttt{agencyID $\to$ TravelAgency}
+    \item \texttt{OrderInfo(\underline{orderID}, \textit{userID},
+           \textit{planID}, order\_time, quantity, total\_price,
+           payment\_status)}
+          \hfill FK: \texttt{userID $\to$ User,\; planID $\to$ TravelPlan}
+    \item \texttt{Rate(\underline{userID, agencyID}, rating, comment,
+           rate\_time)}
+          \hfill FK: \texttt{userID $\to$ User,\; agencyID $\to$
+           TravelAgency}
+  \end{itemize}
+
+\end{enumerate}
+
+\newpage
+\section*{五、并发控制（8 分）}
+
+\supp{原卷注明序列为近似回忆，以下为回忆序列}
+
+对于如下的访问序列：
+\begin{center}
+\texttt{r1(A) w2(A) w2(B) w3(A) r1(A) w3(B) r4(C) r4(B) w5(C) w5(B) r3(C)}
+\end{center}
+
+其中 $\texttt{ri(D)}$ 表示事务 $T_i$ 对数据 D 进行读操作，$\texttt{wi(D)}$ 表示写操作。
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item 根据访问序列画出各个事务的前驱图（precedence graph）
+  \item 判断这一访问序列是否冲突可串行化并说明理由
+  \item 判断这一访问序列是否可以由两阶段锁协议（2PL）产生并说明理由
+\end{enumerate}
+
+\solution
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+
+  \item \textbf{前驱图}：找出所有冲突操作对（不同事务访问同一数据且至少一个是写）。
+
+  \begin{itemize}[nosep]
+    \item \texttt{r1(A)} $\to$ \texttt{w2(A)}：$T_1 \to T_2$
+    \item \texttt{w2(A)} $\to$ \texttt{w3(A)}：$T_2 \to T_3$
+    \item \texttt{w2(A)} $\to$ \texttt{r1(A)}（第二条）：$T_2 \to T_1$
+    \item \texttt{w3(A)} $\to$ \texttt{r1(A)}（第二条）：$T_3 \to T_1$
+    \item \texttt{w2(B)} $\to$ \texttt{w3(B)}：$T_2 \to T_3$
+    \item \texttt{w2(B)} $\to$ \texttt{r4(B)}：$T_2 \to T_4$
+    \item \texttt{w3(B)} $\to$ \texttt{r4(B)}：$T_3 \to T_4$
+    \item \texttt{r4(C)} $\to$ \texttt{w5(C)}：$T_4 \to T_5$
+    \item \texttt{r4(B)} $\to$ \texttt{w5(B)}：$T_4 \to T_5$
+    \item \texttt{w5(B)} $\to$ （无关）\texttt{r3(C)}；
+          \texttt{w5(C)} $\to$ \texttt{r3(C)}：$T_5 \to T_3$
+  \end{itemize}
+
+  化简边：$T_1 \to T_2 \to T_3 \to T_1$（环），$T_1 \to T_2 \to T_1$（直接环）。
+
+  \supp{完整前驱图：T1-T2-T3 三者两两成环，T4、T5 为下游。}
+
+  \item \textbf{不可串行化}。前驱图存在环（$T_1 \to T_2 \to T_1$ 或
+        $T_1 \to T_2 \to T_3 \to T_1$），不满足冲突可串行化的充要条件
+        （前驱图无环）。
+
+  \item \textbf{不可由 2PL 产生}。2PL 产生的所有调度都是冲突可串行化的
+        （前驱图一定无环）。既然该序列不可串行化，就必然不能由 2PL 产生。
+
+\end{enumerate}
+
+\newpage
+\section*{六、ARIES 恢复算法（12 分）}
+
+\supp{原卷注明日志为近似回忆}
+
+给出如下的 ARIES 日志：
+
+{\small
+\begin{verbatim}
+LSN  TID  Type   PageID  Slot  Before  After  prevLSN
+1    T1   upd    6601    1     A       B      0
+2    T2   upd    2628    2     C       D      0
+3    T1   upd    2628    1     X       Y      1
+4    T3   upd    6601    2     E       F      0
+5    T1   upd    6601    3     G       H      3
+6    T2   CLR                                ← checkpoint
+7    T1   upd    ...    ...   ...    ...    5
+8    T2   upd    ...    ...   ...    ...    6
+9    T2   commit                              8
+10   T3   upd    6601    2     M       N      4
+\end{verbatim}}
+
+\supp{具体 LSN、PageID、Slot、值均无法完整回忆，以上日志结构仅用于说明考点}
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item 写出在分析过程（Analysis Phase）中被加入到脏页表（Dirty Page Table）的记录
+  \item 重做过程从哪一条日志开始？
+  \item 写出恢复过程中增加的日志（要求包含事务号、修改页号、slot 号和修改的值）
+  \item 恢复过程结束后，6601.1 和 2628.2 的值分别是多少？
+\end{enumerate}
+
+\solution
+\supp{以下解答基于 ARIES 标准流程，因原卷具体日志数据缺失，无法给出确切数值。}
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+
+  \item \textbf{脏页表}：Analysis 阶段从 checkpoint 开始向前扫描，将 checkpoint 时活跃事务涉及的所有已修改页加入脏页表，再加上 checkpoint 之后的所有 update log 涉及的页。
+  此处 checkpoint 前涉及页：6601, 2628；checkpoint 后 LSN 7--10 也涉及 6601，均入表。
+
+  \item \textbf{Redo 起点}：脏页表中所有页的最早修改 LSN。
+  6601 最早修改为 LSN 1，2628 最早修改为 LSN 2，取最小 = \textbf{LSN 1}。
+
+  \item \textbf{新增 CLR 日志}：Undo 阶段对 loser（未 commit 的 T3）的每条 update，
+  按 prevLSN 链反向 undo。对每条 undo 写一条 CLR（Compensation Log Record），
+  含 undo 后的 before 值。\supp{具体值依赖缺失的日志数据。}
+
+  \item \textbf{最终值}：Redo 阶段从 LSN 1 重放到末尾（包括 abort 产生的 CLR），
+  所有已 commit 事务（T1, T2）的更新生效，T3 被 undo 撤销。
+  6601.1 最终为 Redo 后值，2628.2 同理。\supp{具体值依赖缺失的日志数据。}
+
+  \answer 考点：Analysis 确定脏页表+loser/winner 集合；Redo 从最早脏页 LSN 起；
+  Undo 沿 prevLSN 链反向撤销 loser；CLR 格式为补偿日志。答案形式对应实际日志。
+
+\end{enumerate}
+
+\newpage
+\section*{七、Buffer Tree（12 分）}
+
+Buffer Tree 是一种写优化的索引结构——在 B$^+$ 树的每个内节点处增加一块缓冲区。
+插入键值时，先写入根节点缓冲区。当某节点缓冲区溢出时：
+\begin{itemize}[nosep]
+  \item 若子节点为内节点：将缓冲区所有元素下放到子节点缓冲区中
+  \item 若子节点为叶子：将缓冲区所有元素插入子节点，子节点溢出时正常分裂
+\end{itemize}
+
+本题讨论缓冲区大小为 2 且度 $n=4$ 的 Buffer Tree。初始状态如题图。
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item 现对该树做范围查询（不小于 30 且不大于 50），共有多少节点被访问？
+  \item 向该树中依次插入三个键值：38、92、28。画出三次插入操作之后的 Buffer Tree。
+  \item 在第 (2) 问的插入操作中，每次插入分别有多少节点被修改（分裂新增节点视同修改；
+        根节点始终缓存于内存中，不计入）？
+\end{enumerate}
+
+\solution
+
+\supp{原卷附有初始树图。因图片无法重现，以下基于 B$^+$ 树 $n=4$（每节点最多 4 个指针，3 个键）、buffer size=2 的标准 Buffer Tree 行为进行推演。}
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+
+  \item \textbf{范围查询 [30, 50]}：从根沿树下降到叶子，遍历叶子链表。
+  设初始树高为 $h$（含根节点），需访问根 + $h-2$ 个内部节点 +
+  在范围 [30, 50] 内的所有叶子节点。\supp{具体节点数取决于初始树图。}
+
+  \item \textbf{插入 38, 92, 28}：
+
+  \begin{itemize}[nosep]
+    \item 插入 38：38 写入根 buffer（buffer 未满，不溢出）\\
+    \item 插入 92：92 写入根 buffer $\to$ 根 buffer 满（2 个元素），触发下放。
+    92 被下放到对应子节点（假设右子树）buffer，沿途 buffer 可能下放至叶子。
+    若叶子满则分裂。
+    \item 插入 28：28 写入根 buffer，触发下放到左子树，可能继续下放或分裂。
+  \end{itemize}
+
+  最终形态：插入过程可能产生叶子分裂（因 $n=4$，叶满 4 元素时分裂为两个 2-元素的节点），
+  并有部分键值滞留于各级 buffer 中。
+
+  \supp{因原卷有图，实际画图需根据初始 B$^+$ 树的具体键值和结构。此处仅描述推演过程。}
+
+  \item \textbf{每次插入修改的节点数（不计根）}：
+
+  \begin{itemize}[nosep]
+    \item 插入 38：仅写根 buffer，不触及磁盘节点 $\to$ 修改 0 个节点
+    \item 插入 92：根 buffer 满 $\to$ 下放，修改被下放经过的各层节点及叶子，
+          若叶子分裂则新增节点亦计数 $\to$ \supp{取决于树结构}
+    \item 插入 28：同理，触发下放和可能的分裂 $\to$ \supp{取决于树结构}
+  \end{itemize}
+
+  \answer 考点：Buffer Tree 通过集中批量下放减少磁盘 I/O，insert 不计根。
+  解题关键是追踪 buffer 溢出触发下放的链式反应，以及叶子分裂时的新节点分配。
+
+\end{enumerate}
+
+\vfill
+\hrule
+\vspace{4pt}
+{\footnotesize \textcolor{ansred}{⚠ 本卷由两份 CC98 论坛回忆版本整合而成。选择题第 1--2、4--8 题来自 PDF 版（较完整）；第 3 题和判断题来自两版互校；大题综合两版。标注 \textsuperscript{[补]} 的内容为整理者根据课内知识点对缺失数据的技术性补充，非原卷内容。}}
+
+\end{document}

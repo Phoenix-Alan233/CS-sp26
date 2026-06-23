@@ -1,0 +1,1000 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\geometry{margin=2.2cm}
+
+\definecolor{ansblue}{RGB}{0,70,160}
+\definecolor{ansred}{RGB}{180,20,20}
+\newcommand{\solution}{\par\noindent\textcolor{ansblue}{\textbf{解：}}}
+\newcommand{\answer}{\par\noindent\textcolor{ansred}{\textbf{答案：}}}
+\newcommand{\missingnote}{\textcolor{ansred}{[原卷此处数据缺失]}}
+\newcommand{\recallnote}{\textcolor{ansred}{[原卷回忆细节有误]}}
+
+\title{CS 2089M 数据库系统\\2024--2025 春夏学期 期末回忆卷}
+\author{整理自 CC98 论坛\thanks{原卷说明：部分题目回忆细节有误，缺失数据已在相应位置标注。}}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\vspace{-8pt}
+\begin{center}
+\textbf{共 9 大题}：SQL查询、E-R模型、关系形式化、存储与文件结构、索引、\\
+查询处理、查询优化、事务与并发控制、恢复
+\end{center}
+
+\section*{Problem 1: SQL Querying}
+
+\begin{verbatim}
+CREATE TABLE train (
+  trnid INTEGER PRIMARY KEY,
+  name   VARCHAR(50),
+  type   INTEGER
+);
+
+CREATE TABLE station (
+  staid        INTEGER PRIMARY KEY,
+  name         VARCHAR(100),
+  city         VARCHAR(50),
+  stop_sequence INTEGER,
+  rank         INTEGER
+);
+
+CREATE TABLE timetable (
+  id            INTEGER PRIMARY KEY,
+  train         INTEGER,
+  station       INTEGER,
+  arrival_time  TIME,
+  departure_time TIME,
+  FOREIGN KEY (train) REFERENCES train(trnid),
+  FOREIGN KEY (station) REFERENCES station(staid)
+);
+
+CREATE TABLE ticket (
+  tid   INTEGER PRIMARY KEY,
+  train INTEGER,
+  src   INTEGER,
+  des   INTEGER,
+  price DECIMAL(10,2),
+  date  DATE,
+  FOREIGN KEY (train) REFERENCES train(trnid),
+  FOREIGN KEY (src) REFERENCES station(staid),
+  FOREIGN KEY (des) REFERENCES station(staid)
+);
+\end{verbatim}
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item \textbf{True or False}: Which of the following SQL queries correctly finds
+  the name with the most stops in the \texttt{station} table?
+
+  主要考察查询最大值的多种方法。
+
+  \textbf{Query A}:
+  \begin{verbatim}
+  SELECT s.name, COUNT(t.station) AS stop_count
+  FROM station s
+  JOIN timetable t ON s.staid = t.station
+  ORDER BY stop_count DESC
+  LIMIT 1;
+  \end{verbatim}
+
+  \solution Query A 没有 \texttt{GROUP BY}，直接 \texttt{COUNT(t.station)} 会
+  把全表聚合为一行，无法按站分组计数。掉一个 \texttt{GROUP BY}，逻辑错。
+
+  \answer \textcolor{ansred}{$\times$（False）}
+
+  \textbf{Query B}:
+  \begin{verbatim}
+  SELECT s.name, COUNT(t.station) AS stop_count
+  FROM station s
+  JOIN timetable t ON s.staid = t.station
+  GROUP BY s.staid, s.name
+  ORDER BY stop_count DESC
+  LIMIT 1;
+  \end{verbatim}
+
+  \solution 正确。\texttt{GROUP BY s.staid, s.name} 分组，\texttt{ORDER BY + LIMIT 1}
+  取最大值。语法和逻辑均无误。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+  \textbf{Query C}:
+  \begin{verbatim}
+  SELECT s.name, COUNT(t.station) AS stop_count
+  FROM station s
+  JOIN timetable t ON s.staid = t.station
+  GROUP BY s.staid, s.name
+  HAVING COUNT(t.station) = (
+    SELECT MAX(cnt)
+    FROM (
+      SELECT COUNT(station) AS cnt
+      FROM timetable
+      GROUP BY station
+    ) counts
+  );
+  \end{verbatim}
+
+  \solution 正确。子查询算出最大停靠次数，\texttt{HAVING} 筛出等于最大值的站。
+  逻辑完美，且能处理并列第一。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+  \textbf{Query D}:
+  \begin{verbatim}
+  SELECT s.name, COUNT(t.station) AS stop_count
+  FROM station s
+  JOIN timetable t ON s.staid = t.station
+  GROUP BY s.staid, s.name
+  HAVING COUNT(t.station) >= ALL (
+    SELECT COUNT(station) AS cnt
+    FROM timetable
+    GROUP BY station
+  );
+  \end{verbatim}
+
+  \solution 正确。\texttt{>= ALL(subquery)} 等价于 \texttt{>= max(subquery)}，
+  筛出计数不小于所有其他计数的站。逻辑正确。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+\item \textbf{True or False}: Which of the following SQL queries correctly finds
+  the cheapest price among tickets with origin A and destination B?
+
+  \textbf{Query A}:
+  \begin{verbatim}
+  SELECT t.tid
+  FROM ticket t
+  JOIN station src ON t.src = src.staid
+  JOIN station des ON t.des = des.staid
+  WHERE src.name = 'A' AND des.name = 'B'
+  ORDER BY t.price ASC
+  LIMIT 1;
+  \end{verbatim}
+
+  \solution 正确。标准 \texttt{JOIN ... ON} 语法，两表联表找始发/终到站名，
+  \texttt{ORDER BY + LIMIT 1} 取最低价票。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+  \textbf{Query B}:
+  \begin{verbatim}
+  SELECT t.tid
+  FROM ticket t, station src, station des
+  WHERE t.src = src.staid AND t.des = des.staid
+    AND src.name = 'A' AND des.name = 'B'
+  ORDER BY t.price ASC
+  LIMIT 1;
+  \end{verbatim}
+
+  \solution 正确。隐式 \texttt{CROSS JOIN + WHERE} 等价于显式 \texttt{JOIN ... ON}。
+  结果与 Query A 完全相同。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+  \textbf{Query C}:
+  \begin{verbatim}
+  SELECT C.tid
+  FROM (
+    SELECT t.tid, t.price
+    FROM ticket t, station src, station des
+    WHERE t.src = src.staid AND t.des = des.staid
+      AND src.name = 'A' AND des.name = 'B'
+  ) C
+  ORDER BY C.price ASC
+  LIMIT 1;
+  \end{verbatim}
+
+  \solution 正确。子查询 \texttt{C} 先筛出符合条件的票，外层按价格排序取最小。
+  等价于前两者，只是嵌套层次多了一层。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+  \textbf{Query D}:
+  \begin{verbatim}
+  SELECT t.tid
+  FROM ticket t
+  WHERE EXISTS (
+    SELECT 1 FROM station src
+    WHERE t.src = src.staid AND src.name = 'A'
+  )
+  AND EXISTS (
+    SELECT 1 FROM station des
+    WHERE t.des = des.staid AND des.name = 'B'
+  )
+  ORDER BY t.price ASC
+  LIMIT 1;
+  \end{verbatim}
+
+  \solution 正确。用 \texttt{EXISTS} 半连接分别检查 A 始发和 B 到达，
+  价格排序取最低。逻辑等价于 join 写法。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+  \answer 四者全部正确。
+
+\item \textbf{Fill in the blank} to implement the query: Find the name of trains
+  that depart later than 17:00:00.
+
+  \begin{verbatim}
+  SELECT ____ FROM train
+  WHERE EXISTS (
+    SELECT 1
+    FROM timetable
+    WHERE _______________ AND
+          departure_time > '17:00:00'
+  );
+  \end{verbatim}
+
+  \solution 第一空：需要选的是 \texttt{train} 表的名字，故填 \texttt{name}（或 \texttt{trnid, name}）。
+
+  第二空：\texttt{EXISTS} 子查询需要把 \texttt{train} 表和 \texttt{timetable} 表关联起来：
+  \texttt{timetable.train = train.trnid}（或 \texttt{trnid}）。
+
+  \answer 第一空：\textcolor{ansred}{\texttt{name}}；第二空：\textcolor{ansred}{\texttt{timetable.train = train.trnid}}。
+
+\item \textbf{True or False}: When joining the \texttt{timetable} and
+  \texttt{station} tables, the condition \texttt{city = "Hangzhou"} can be
+  applied to \texttt{station} first before joining with \texttt{timetable}.
+
+  \solution \textbf{正确}。下推选择（selection pushdown）是查询优化的基本规则：
+  先在 \texttt{station} 上做 $\sigma_{\texttt{city="Hangzhou"}}$，缩减中间结果，
+  再与 \texttt{timetable} 连接。只要该条件仅涉及 \texttt{station} 的属性，
+  提前过滤不会改变结果（等价于代数规则 $\sigma_p(r \Join s) = \sigma_p(r) \Join s$ 当 $p$ 仅含 $r$ 的属性）。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+\item \textbf{True or False}: When joining the \texttt{timetable}, \texttt{station},
+  and \texttt{train} tables, the conditions \texttt{city = "Hangzhou"} and
+  \texttt{train.name = "ABC"} can be applied to \texttt{station} and \texttt{train}
+  first before joining with \texttt{timetable}.
+
+  \solution \textbf{正确}。同理，两个选择条件分别仅涉及 \texttt{station} 和
+  \texttt{train} 的属性，都应尽早下推到对应表上，缩减参与 join 的行数。
+  这是查询优化的基本操作。
+
+  \answer \textcolor{ansred}{$\surd$（True）}
+
+\item \textbf{Write the relational algebra expression} for the following query:
+  Find the name and type of trains that stop at the "Hangzhou Dong" station.
+
+  \answer
+  \begin{align*}
+    \pi_{\texttt{name},\,\texttt{type}}\Big(
+      \sigma_{\texttt{station.name = ``Hangzhou Dong''}}\big(
+        \texttt{train} \Join_{\texttt{trnid = train}} \texttt{timetable}
+        \Join_{\texttt{station = staid}} \texttt{station}
+      \big)
+    \Big)
+  \end{align*}
+  或等价地先将选择下推到 \texttt{station} 上再连接：
+  \begin{align*}
+    \pi_{\texttt{name},\,\texttt{type}}\Big(
+      \texttt{train} \Join (\texttt{timetable} \Join
+      \sigma_{\texttt{name = ``Hangzhou Dong''}}(\texttt{station}))
+    \Big)
+  \end{align*}
+
+\end{enumerate}
+
+\section*{Problem 2: E-R Model}
+
+\recallnote
+
+\noindent Assumptions:
+\begin{itemize}[nosep]
+  \item A passenger can purchase multiple tickets.
+  \item A ticket may remain unsold.
+  \item A station must serve as the source (\texttt{src}) for at least one ticket.
+  \item \texttt{timetable} is a weak entity set, with \texttt{train} as its
+        identifying entity set.
+\end{itemize}
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item If \texttt{timetable} is a weak entity set, with \texttt{train} as its
+  identifying entity set, how is the relationship set connecting them represented?
+
+  \begin{enumerate}[label=\Alph*.]
+    \item undirected line
+    \item undirected double line
+    \item directed line
+    \item directed double line
+  \end{enumerate}
+
+  \solution 弱实体集与其标识实体集之间的\textbf{标识联系}（identifying relationship）
+  用\textbf{双线菱形}表示，连线到弱实体集一侧为\textbf{双线}（边框），
+  到强实体集一侧为普通线，标识联系本身用双线菱形表示。
+  经典 E-R 记号：identifying relationship $\to$ 双线菱形；弱实体集边框为双线。
+
+  \answer \textcolor{ansred}{D. directed double line}（标识联系均双线）
+
+\item[\textcolor{gray}{2--5}] What is the shape of edge $a, b, c, d$?\\
+  \missingnote\ 原卷附有 E-R 图，图中标有边 $a,b,c,d$，图已丢失。
+  选项均为：A. undirected line\quad B. undirected double line\quad
+  C. directed line\quad D. directed double line
+
+  \answer 标注：此类题考查 E-R 图中各边的类型——普通边（单线无箭头）、
+  标识联系边（双线）、箭头边（最多一）、基数约束边的辨识。
+  需根据图中实体和联系的语义选择正确记号。具体答案依赖于缺失的图。
+
+\end{enumerate}
+
+\section*{Problem 3: Relational Formalization}
+
+\missingnote\ 原卷关系 $R$ 及函数依赖集 $F$ 的具体内容缺失。
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item \textbf{True or False}: The closures of several attribute sets contain
+  the same attributes.
+
+  \solution 属性闭包的计算：给定 FD 集 $F$，计算 $\{\alpha\}^+_F$。
+  若两组属性集的闭包相同，说明它们互相确定（等价于 $\alpha \leftrightarrow \beta$）。
+
+  \answer 需根据具体 FD 计算闭包后比较。
+
+\item The canonical cover of $F$ is: \underline{\hspace{3cm}}
+
+  \solution 正则覆盖计算步骤：
+  \begin{enumerate}[nosep]
+    \item 将所有 FD 右部拆为单属性
+    \item 去除各 FD 左部多余属性（逐个尝试移除，检查闭包是否仍包含右部）
+    \item 去除冗余 FD（逐个尝试删除，检查删除后闭包是否仍包含原右部）
+  \end{enumerate}
+
+  \answer 需根据具体 FD 计算。
+
+\item Which of the following is a candidate key of $R$?\\
+  A--D: (选项值缺失)\quad E. None of the above
+
+  \solution 候选键判定：找到一组属性集 $\alpha$ 满足
+  $\alpha^+_F = R$（能推出所有属性）且 $\alpha$ 的任何真子集都不满足
+  （最小性）。
+
+  \answer 需根据 $R$ 和 $F$ 逐一计算。
+
+\item Adding which FD will NOT change the candidate key(s)?\\
+  A--D: (选项值缺失)\quad E. None of the above
+
+  \solution 向 $F$ 添加一个 FD 后，若原候选键的闭包仍为 $R$ 且不引入新的更小
+  候选键，则候选键不变。若新 FD 的右部已是原键闭包的一部分，则不影响。
+
+  \answer 需根据具体候选键和选项判断。
+
+\item \textbf{True or False}: Decomposing $R$ into $R_1(\dots)$ and $R_2(\dots)$
+  is NOT lossless. \missingnote\  分解属性缺失。
+
+  \solution 无损连接分解判定：设分解为 $R_1$ 和 $R_2$，
+  则需 $R_1 \cap R_2 \to R_1$ 或 $R_1 \cap R_2 \to R_2$ 在 $F^+$ 中成立。
+  即公共属性构成其中一个子模式的超键。
+
+  \answer 需计算 $(R_1 \cap R_2)^+_F$，检查是否包含 $R_1$ 或 $R_2$。
+
+\item \textbf{True or False}: Decomposing $R$ into $R_1,R_2,R_3$ results in all
+  three subrelations satisfying BCNF. \missingnote\  分解属性缺失。
+
+  \solution BCNF 判定：对每个子模式 $R_i$，其上的每个非平凡 FD
+  $\alpha \to \beta$ 都需满足 $\alpha$ 是 $R_i$ 的超键。
+  从 $F$ 仅保留涉及 $R_i$ 属性的 FD（或求投影 $F^+|_{R_i}$）后逐一检查。
+
+  \answer 需根据各子模式上的局部 FD 验证是否为超键。
+
+\end{enumerate}
+
+\section*{Problem 4: Storage and File Structure}
+
+\recallnote
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item \textbf{True or False}:
+
+  \begin{enumerate}[label=(\alph*)]
+    \item Cache is primary storage and main memory is secondary storage.
+    \item DBMS transfers data from disk to main memory.
+    \item Data on the inner tracks of a disk is accessed slower than data on
+          the outer tracks.
+    \item A 15,000 RPM disk does not necessarily have a shorter seek time than
+          a 7,500 RPM disk.
+  \end{enumerate}
+
+  \solution
+  \begin{enumerate}[label=(\alph*)]
+    \item \textbf{False}。Cache 是 SRAM（更靠近 CPU），Main Memory 是 DRAM（主存）。
+          两者都属于主存储（primary storage）。Disk/SSD 是二级存储（secondary storage）。
+          故说 cache 是 primary 而 main memory 是 secondary 明显错误。
+    \item \textbf{True}。DBMS 从磁盘读数据时，先将磁盘块读入内存缓冲区（buffer pool），
+          在内存中处理。这是 DBMS 存储管理的基本操作。
+    \item \textbf{True}。现代磁盘外道周长更大、线速度更高，且外道扇区密度通常更高，
+          因此外道数据传输速率高于内道。
+    \item \textbf{True}。Seek time 主要由磁头臂的机械移动决定，与 RPM 关系不大。
+          高 RPM 主要缩短的是旋转延迟（rotational latency），
+          不保证 seek time 更短。
+  \end{enumerate}
+
+  \answer (a) \textcolor{ansred}{$\times$}, (b) \textcolor{ansred}{$\surd$},
+  (c) \textcolor{ansred}{$\surd$}, (d) \textcolor{ansred}{$\surd$}
+
+\item Given a record (23, "Chicago", 10), fill in its memory structure.
+
+  {\small
+  \begin{verbatim}
+  CREATE TABLE A (
+    id   INTEGER PRIMARY KEY,
+    name VARCHAR,
+    type INTEGER
+  )
+  \end{verbatim}}
+
+  Assumptions:
+  \begin{itemize}[nosep]
+    \item Integer size: 4B
+    \item \texttt{name} field's offset and length each occupy 4B
+    \item Null bitmap is omitted
+  \end{itemize}
+
+  \solution 记录内存布局（定长部分 + 变长部分）：
+  \begin{itemize}[nosep]
+    \item \texttt{id} (INTEGER, NOT NULL, 4B)：偏移 0，值 23
+    \item \texttt{name} (VARCHAR, 4B + 4B = 8B)：
+          头部的 offset 指向变长区的实际字符串起始位置；
+          length 存储字符串长度（"Chicago" = 7 字节）
+    \item \texttt{type} (INTEGER, 4B)：偏移 $4+8=12$，值 10
+    \item 变长区：字符串 "Chicago"（7 字节），其偏移位置在定长区指定
+  \end{itemize}
+
+  \answer 记录格式为：
+  \begin{center}
+  \begin{tabular}{|c|c|c|c|c|}
+    \hline
+    id (4B): 23 & name\_offset (4B) & name\_len (4B): 7
+    & type (4B): 10 & \texttt{"Chicago"} (7B) \\
+    \hline
+  \end{tabular}
+  \end{center}
+  （变长字段在前，定长字段在后或反之均可，取决于具体实现。）
+
+\item If NULL values are allowed, the minimum size of a record is:
+  \underline{\hspace{2cm}} B
+
+  \solution 若允许 NULL，定长部分仍占用固定字节数（id=4 + type=4 = 8B），
+  VARCHAR 字段在 NULL 时 offset 和 length 仍占用空间（各 4B，共 8B），
+  变长区不分配空间。最小记录 $= 4+4+4+4 = 16$ B（或 8B 若 offset/length 可简化为标志位）。
+
+  \answer 按题设假设 offset + length 各 4B，最小为 \textcolor{ansred}{16\,B}。
+
+\item Using a slotted-page structure, where: Free space pointer occupies 4B;
+  Record count field occupies 4B; Length and pointer for each record occupy 2B
+  each. The maximum number of records that can be stored in a 4KB page is:
+  \underline{\hspace{2cm}}
+
+  \solution 页大小 4KB = 4096B。
+
+  页头开销：
+  \begin{itemize}[nosep]
+    \item Free space pointer: 4B
+    \item Record count: 4B
+    \item 每个 slot entry：length (2B) + pointer (2B) = 4B
+  \end{itemize}
+
+  设最多 $n$ 条记录，则：
+  \[4 + 4 + 4n + \sum\text{(record data)} \le 4096\]
+
+  理论上限（记录体积极小趋于 0）：
+  \[8 + 4n \le 4096 \quad\Rightarrow\quad 4n \le 4088 \quad\Rightarrow\quad
+    n \le 1022\]
+
+  若每条记录至少 1B 有效数据，则 $8 + 5n \le 4096$，$n \le 817$。
+  题干未给出记录最小长度，故按\textbf{记录体积趋零}的理论极值作答。
+
+  \answer 理论上限为 \textcolor{ansred}{1022}（仅计入 slot 开销）。
+  实际操作中受最小记录长度约束。
+\end{enumerate}
+
+\section*{Problem 5: Indexing}
+
+\missingnote\  B$^+$ 树图缺失，$n$ 值未标。
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item After inserting 27, the root node contains:
+
+  A. 6, 17 \quad B. 6 \quad C. 11 \quad D. 11, 17 \quad E. None of the above
+
+  \solution B$^+$ 树插入：从根下到叶插入，若叶满则分裂，分裂可能向上传播至根。
+  27 是否引起根分裂取决于原树结构和 $n$ 值。
+
+  \answer 需根据初始 B$^+$ 树图插入后判断。
+
+\item After insertion, if we then delete 11, the root node contains:
+
+  A. 6 \quad B. 17 \quad C. 6 or 17 \quad D. None of the above
+
+  \solution B$^+$ 树删除：找到 11，删除，若叶下溢（key 数 $< \lceil (n-1)/2\rceil$）
+  则尝试 borrow 或 merge，可能向上传播至根。
+
+  \answer 需根据操作后树状态判断。
+
+\item The table \texttt{T} has a B$^+$ Tree index on \texttt{id} and there
+  are 300,000 records in total. The maximum height of the B$^+$ Tree is:
+  \underline{\hspace{2cm}}
+
+  \solution B$^+$ 树最大高度出现在节点填充率最低时
+  （每个非叶节点仅 $\lceil n/2 \rceil$ 个指针，每个叶节点仅
+  $\lceil (n-1)/2 \rceil$ 个键）。
+
+  \answer 需已知 $n$ 才能计算：$h_{\max} = \lceil
+  \log_{\lceil n/2 \rceil}(300000 / \lceil (n-1)/2 \rceil) \rceil + 1$。
+
+\item The maximum data transfer required to search for a specific record by
+  \texttt{id} is: \underline{\hspace{2cm}}
+
+  \solution 搜索一条记录最多需要从根遍历到叶，每个树层读 1 个节点（1 transfer），
+  共 $h$ 层（根计 1 transfer）。若索引非聚簇，还需 1 transfer 读数据块。
+
+  \answer 最大 transfer = \textcolor{ansred}{树高 $h$（聚簇）或 $h+1$（非聚簇）}。
+
+\end{enumerate}
+
+\section*{Problem 6: Query Processing}
+
+\recallnote
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item \textbf{True or False}:
+
+  \begin{enumerate}[label=(\alph*)]
+    \item Linear search is applicable in all cases.
+    \item Index search is always faster than linear search.
+    \item In external sorting, relation $r$ has 400 records, relation $s$ has
+          3000 records, $B = \dots$ \missingnote
+  \end{enumerate}
+
+  \solution
+  \begin{enumerate}[label=(\alph*)]
+    \item \textbf{True}。线性搜索不要求数据有序或有索引，任何表上都能做。
+    \item \textbf{False}。当查询选择性很高（返回大量记录）时，索引查找需要大量随机 I/O，
+          可能远慢于一次顺序扫描全表。
+    \item \missingnote\ 缺 $B$ 值，无法判断。
+  \end{enumerate}
+
+  \answer (a) \textcolor{ansred}{$\surd$}, (b) \textcolor{ansred}{$\times$},
+  (c) \textcolor{ansred}{待定}。
+
+\item The initial number of generate runs for $r$ and $s$ are
+  \underline{\hspace{1cm}} and \underline{\hspace{1cm}} respectively.
+
+  \solution 初始归并段数 $= \lceil b_r / M \rceil$，其中 $b_r$ 为关系块数，
+  $M$ 为可用内存块数。
+
+  \answer 需已知 $M$。公式：$\lceil \text{\#blocks} / M \rceil$。
+
+\item \textbf{True or False}: Both $r$ and $s$ require exactly 2 passes during
+  external sorting.
+
+  \solution 外排序的 pass 数 $= 1 + \lceil \log_{M-1}(b/M) \rceil$。
+  关系块数不同，pass 数可能不同。400 条和 3000 条记录若块数差异大，
+  几乎不可能同时恰好需要 2 pass。
+
+  \answer \textcolor{ansred}{$\times$（False）}
+
+\item After external sorting, when using merge join. The data transfer cost is
+  \underline{\hspace{2cm}}, The seek cost is \underline{\hspace{2cm}}.
+
+  \solution Merge join 的 transfer cost $= b_r + b_s$（两个关系各读一次）。
+  Seek cost 取决于缓冲区大小。
+
+  \answer Transfer: \textcolor{ansred}{$b_r + b_s$}。Seek: 取决于 $M$。
+
+\item \textbf{True or False}:
+
+  \begin{enumerate}[label=(\alph*)]
+    \item If $M > 3$, $M-2$ blocks should be allocated for the outer relation.
+    \item If $M = 20$, then allocating 1 block to $r$, 18 blocks to $s$, and
+          1 block to output would minimize the join cost.
+  \end{enumerate}
+
+  \solution
+  \begin{enumerate}[label=(\alph*)]
+    \item \textbf{False}。在 block nested-loop join 中，若外层用 $M-2$ 块读入，
+          内层剩 1 块，剩余 1 块用于 output。这样外层一次可读入 $M-2$ 块块减少内层
+          扫描次数，确实是最优策略，而非 "$M > 3$" 就自动成立——还需 $M \ge 3$ 且两块
+          给 output。\textcolor{gray}{措辞 "should" 方向对但 "$M > 3$" 条件粗糙。}
+    \item \textbf{True}（在特定假设下）。将较小的 $r$ 用 1 块读入作为外层，较大
+          的 $s$ 用 $M-2 = 18$ 块作为内层一次性读入，每轮外扫描内层一次，
+          总开销最小。
+  \end{enumerate}
+
+  \answer (a) \textcolor{ansred}{倾向于 $\times$（条件不严谨）},
+  (b) \textcolor{ansred}{$\surd$}（当 $b_s \gg b_r$ 时）。
+
+\end{enumerate}
+
+\section*{Problem 7: Query Optimization}
+
+\recallnote
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item The following equivalence relations are incorrect:
+  \begin{enumerate}[label=\Alph*.]
+    \item $\sigma_{p \land q}(r) = \sigma_p(\sigma_q(r))$
+    \item $\sigma_p(r \Join s) = \sigma_p(r) \Join s$（当 $p$ 仅含 $r$ 的属性）
+    \item $\pi_A(r \Join s) = \pi_A(r) \Join \pi_A(s)$
+    \item $\sigma_p(r \cup s) = \sigma_p(r) \cup \sigma_p(s)$
+  \end{enumerate}
+
+  \solution
+  \begin{enumerate}[label=\Alph*.]
+    \item 正确。合取可级联选择。
+    \item 正确。选择下推。
+    \item \textbf{不正确}。若 join 涉及 $r$ 和 $s$ 的不同属性，先投影各自到 $A$ 再 join
+          可能丢失 join 条件所需的属性，导致无法等值连接。投影下推需保留下推所需的列。
+    \item 正确。选择对并集分配律。
+  \end{enumerate}
+
+  \answer \textcolor{ansred}{C}
+
+  \begin{verbatim}
+  CREATE TABLE student (
+    sid   INTEGER PRIMARY KEY,
+    name  VARCHAR(20) NOT NULL,
+    gender CHAR(1) CHECK (gender IN ('M', 'F'))
+  );
+
+  CREATE TABLE grade (
+    sid   INTEGER PRIMARY KEY,
+    grade INTEGER,
+    FOREIGN KEY (sid) REFERENCES student(sid)
+  );
+  \end{verbatim}
+
+  \begin{verbatim}
+  SELECT s.sid
+  FROM student s, grade g
+  WHERE s.sid = g.sid AND grade > 107;
+  \end{verbatim}
+
+  Assumptions:
+  \begin{itemize}[nosep]
+    \item \texttt{sid} has 50 distinct values
+    \item \texttt{grade} ranges from 60 to 120 (inclusive), uniformly distributed
+  \end{itemize}
+
+\item The selectivity of condition \texttt{s.sid = g.sid} is:
+  \underline{\hspace{2cm}}
+
+  \solution $\texttt{sid}$ 有 50 个 distinct 值。等值连接 $s.sid = g.sid$ 的
+  selectivity $= 1 / \max(V(s.sid, student), V(sid, grade))
+  = 1 / \max(50, 50) = 1/50$。
+
+  含义：在笛卡尔积中，仅 1/50 的行连接条件成立。
+
+  \answer \textcolor{ansred}{$1/50 = 0.02$}
+
+\item The selectivity of condition \texttt{grade > 107} is:
+  \underline{\hspace{2cm}}
+
+  \solution grade 在 [60,120] 上均匀分布，共 $120-60+1 = 61$ 种取值。
+  grade $> 107$ 即 grade $\in [108, 120]$，共 $120-108+1 = 13$ 种取值。
+  均匀分布下 selectivity $= 13/61 \approx 0.213$。
+
+  \answer \textcolor{ansred}{$13/61 \approx 0.213$}
+
+\end{enumerate}
+
+\section*{Problem 8: Transaction and Concurrency Control}
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item \textbf{True or False}:
+
+  \begin{enumerate}[label=(\alph*)]
+    \item A conflict-serializable schedule must be a recoverable schedule.
+    \item Conflict serializability corresponds to a unique serial schedule.
+    \item 2PL (Two-Phase Locking) ensures recoverability.
+    \item Strict 2PL ensures recoverability.
+  \end{enumerate}
+
+  \solution
+  \begin{enumerate}[label=(\alph*)]
+    \item \textbf{False}。冲突可串行化 $\not\Rightarrow$ 可恢复。
+          反例：$T_2$ 读了 $T_1$ 写的脏数据并 commit，然后 $T_1$ abort。
+          这是冲突可串行化但不恢复（脏读）。
+    \item \textbf{False}。冲突可串行化说明存在某个串行调度的执行效果与之等价，
+          但该串行调度未必唯一。含无关事务并行时可能有多个等价的串行顺序。
+    \item \textbf{False}。基本 2PL 不保证可恢复性——事务可在 commit 前读未提交数据，
+          可能脏读。
+    \item \textbf{True}。Strict 2PL 要求事务直到 commit 才释放排他锁，
+          杜绝了读未提交数据的可能，因此保证可恢复性（且保证无级联回滚）。
+  \end{enumerate}
+
+  \answer (a) \textcolor{ansred}{$\times$}, (b) \textcolor{ansred}{$\times$},
+  (c) \textcolor{ansred}{$\times$}, (d) \textcolor{ansred}{$\surd$}
+
+\item \textbf{Draw the precedence graph. What are the edges?}
+
+  {\small
+  \begin{center}
+  \begin{tabular}{c|c|c}
+  T1 & T2 & T3 \\
+  \midrule
+  Read(A) & & \\
+  Write(A) & & \\
+  Write(A) & & \\
+  & Read(B) & \\
+  & Read(B) & \\
+  & Write(B) & \\
+  & & Read(B) \\
+  & & Read(C) \\
+  & & Write(C)
+  \end{tabular}
+  \end{center}}
+
+  Options: A, B, C, D. None of above. \textcolor{gray}{原题 B 选项有问题}
+
+  \solution 按行序提取冲突：
+
+  \begin{itemize}[nosep]
+    \item $T_1$ Read(A) $\to$ 无前驱（A 首次访问）
+    \item $T_1$ Write(A) $\to$ 与前面的自身 Read 不构成跨事务冲突
+    \item $T_2$ Write(A) $\to$ 冲突于 $T_1$ 的 Write(A)：$T_1 \to T_2$
+          也冲突于 $T_1$ 的 Read(A) 吗？读在写之前，$T_1: R(A) \to T_2: W(A)$，这是 $T_1 \to T_2$。
+    \item $T_2$ Read(B) $\to$ B 首次被访问，无冲突
+    \item $T_3$ Read(B) $\to$ 与 $T_2$ 的 Read(B) 不冲突（两个读）
+    \item $T_3$ Write(B) $\to$ 冲突于 $T_2$ Read(B)：$T_2 \to T_3$
+    \item $T_3$ Read(C) $\to$ C 首次
+    \item $T_3$ Write(C) $\to$ 与自身不冲突
+  \end{itemize}
+
+  边集合：$T_1 \to T_2$，$T_2 \to T_3$。无环。
+
+  \answer 边为 $T_1 \to T_2$、$T_2 \to T_3$。
+
+\item \textbf{Is this schedule conflict-serializable?}
+
+  \solution 前驱图无环 $\Rightarrow$ 冲突可串行化。串行等价顺序：$T_1 \to T_2 \to T_3$。
+
+  \answer \textcolor{ansred}{Yes（是）}
+
+\item \textbf{True or False: Deadlock}
+
+  \begin{enumerate}[label=(\alph*)]
+    \item Deadlock can be represented in a precedence graph.
+    \item The Tree Protocol can prevent deadlocks.
+    \item Rigorous 2PL can prevent deadlocks.
+    \item The Wait-Die scheme can prevent deadlocks.
+  \end{enumerate}
+
+  \solution
+  \begin{enumerate}[label=(\alph*)]
+    \item \textbf{False}。Precedence graph 用于判断冲突可串行化，刻画事务间
+          的操作冲突。死锁的表示需 \textbf{wait-for graph}
+          （等待图），两者不是同一个图。
+          死锁意味着 cycles in wait-for graph，与 precedence graph 无关。
+    \item \textbf{True}。树协议通过限制锁的获取顺序（沿树从根到叶，先锁父再锁子），
+          避免了循环等待，从而预防死锁。
+    \item \textbf{False}。Rigorous 2PL（严格两阶段锁）保证可串行化和级联回滚预防，
+          但\textbf{不能预防死锁}——事务仍可因锁升级冲突而互相等待形成循环。
+    \item \textbf{True}。Wait-Die 基于时间戳的抢占式死锁预防方案，
+          旧事务等新事务（wait），新事务不等等旧事务（die 后重试），
+          保证无法形成等待环。
+  \end{enumerate}
+
+  \answer (a) \textcolor{ansred}{$\times$}, (b) \textcolor{ansred}{$\surd$},
+  (c) \textcolor{ansred}{$\times$}, (d) \textcolor{ansred}{$\surd$}
+
+\end{enumerate}
+
+\newpage
+\section*{Problem 9: Recovery}
+
+{\small
+\begin{verbatim}
+3000: <T1, 6421.1, 10, 20>
+3001: <T2, start>
+3002: <T3, start>
+3003: <T2, 3462.1, 30, 40>
+3004: <T3, 7923.1, 50, 60>
+3005: <T2, 3462.1, 40, 70>
+3006: <T1, 6421.1, 20, 80>
+3007: <T3, commit>
+3008: checkpoint
+
+   DirtyPageTable
+   Page   PageLSN  RecLSN
+   3462   3005     3005
+   6421   3006     3000
+   7923   3004     3004
+
+   TXN  LastLSN
+   T1   3006
+   T2   3005
+
+3009: <T4, start>
+3010: <T4, 5235.1, 60, 90>
+3011: <T1, 6421.1, 80, 100>
+3012: <T1, commit>
+\end{verbatim}}
+
+\begin{enumerate}[leftmargin=*,itemsep=6pt]
+
+\item The Analysis phase starts at:\\
+  A. 3000 \quad B. 3001 \quad C. 3002 \quad D. 3008 \quad E. None of the above
+
+  \solution Analysis 阶段从\textbf{最近的完整 checkpoint} 开始。最近 checkpoint
+  为 LSN 3008。从 checkpoint 处开始向前扫描（forward scan）至日志末尾，
+  重建 checkpoint 之后发生的 dirty page table 和活跃事务表。
+
+  \answer \textcolor{ansred}{D. 3008}
+
+\item After the Analysis phase completes, what are the DirtyPageTable and
+  undo-list? Fill in the tables below (leave a row empty if an entry does not
+  exist).
+
+  {\small
+  \begin{center}
+  \begin{tabular}{c|c|c}
+  Page & PageLSN & RecLSN \\
+  \midrule
+  3462 & \_\_ & \_\_ \\
+  5235 & \_\_ & \_\_ \\
+  6421 & \_\_ & \_\_ \\
+  7923 & \_\_ & \_\_ \\
+  \end{tabular}
+  \qquad
+  \begin{tabular}{c|c}
+  TXN & LastLSN \\
+  \midrule
+  T1 & \_\_ \\
+  T2 & \_\_ \\
+  T3 & \_\_ \\
+  T4 & \_\_ \\
+  \end{tabular}
+  \end{center}}
+
+  \solution Analysis 阶段：从 LSN 3008（checkpoint）开始，继承其脏页表和
+  活跃事务表，再正向扫描 3009--3012。
+
+  \textbf{初始状态（checkpoint 时）}：
+  \begin{itemize}[nosep]
+    \item DirtyPageTable: P3462(3005,3005), P6421(3006,3000), P7923(3004,3004)
+    \item TXN table: T1(LastLSN=3006), T2(LastLSN=3005), T3 已 commit（不在活跃表中）
+  \end{itemize}
+
+  \textbf{扫描 3009--3012}：
+  \begin{itemize}[nosep]
+    \item 3009: T4 start $\to$ 加入 TXN table，LastLSN=3009
+    \item 3010: T4 upd P5235 $\to$ 5265 入 DirtyPageTable(5235, 3010, 3010)；
+          T4 的 LastLSN 更新为 3010
+    \item 3011: T1 upd P6421 $\to$ 更新 DirtyPageTable(6421, 3011, 3000)
+          （PageLSN 更新为 3011，RecLSN 保持最早的 3000）；T1 LastLSN 更新为 3011
+    \item 3012: T1 commit $\to$ T1 移出 TXN table
+  \end{itemize}
+
+  \textbf{Analysis 结束}：
+  \begin{itemize}[nosep]
+    \item Winner（已 commit）：T1（分析前已 commit，扫描中又 commit），T3
+    \item Loser（undo list）：T2（未 commit），T4（未 commit）
+  \end{itemize}
+
+  \answer
+  \textcolor{ansred}{
+  \begin{center}
+  \begin{tabular}{c|c|c}
+  Page & PageLSN & RecLSN \\
+  \midrule
+  3462 & 3005 & 3005 \\
+  5235 & 3010 & 3010 \\
+  6421 & 3011 & 3000 \\
+  7923 & 3004 & 3004 \\
+  \end{tabular}
+  \qquad
+  \begin{tabular}{c|c}
+  TXN & LastLSN \\
+  \midrule
+  T1 & 3011 (已 commit) \\
+  T2 & 3005 \\
+  T3 & 3007 (已 commit) \\
+  T4 & 3010 \\
+  \end{tabular}
+  \end{center}
+  Undo list: T2, T4（loser）。
+
+  Winner: T1, T3。
+  }
+
+\item The Redo phase starts at:\\
+  A. 3000 \quad B. 3001 \quad C. 3002 \quad D. 3008 \quad E. None of the above
+
+  \solution Redo 从脏页表中最小的 RecLSN 开始。查上表：
+  P3462: RecLSN=3005，P5235: RecLSN=3010，
+  P6421: RecLSN=3000，P7923: RecLSN=3004。
+  最小 RecLSN = \textbf{3000}。
+
+  \answer \textcolor{ansred}{A. 3000}
+
+\item During the Redo phase, which log entries are skipped?\\
+  A. 3000 \quad B. 3003 \quad C. 3010 \quad D. 3011 \quad E. None of the above
+
+  \solution Redo 阶段从 LSN 3000 开始重新执行\textbf{所有} update 日志
+  （包括 loser 的修改），但跳过以下情况：
+  \begin{itemize}[nosep]
+    \item 页不在脏页表中
+    \item 页的 PageLSN $\ge$ 当前 LSN（页已更新过）
+  \end{itemize}
+
+  逐个检查 3000--3012：
+  \begin{itemize}[nosep]
+    \item 3000 (T1, P6421)：页在 DPT，RecLSN $\le$ 3000，PageLSN=3006 $\ge$ 3000？
+          实际执行 Redo 时按 LSN 递增遍历日志。3000 到达时 P6421 的 PageLSN 尚为初始值（<3000），
+          不跳过。执行 3000。
+    \item 3003 (T2, P3462)：不跳过，执行。
+    \item 3010 (T4, P5235)：不跳过，执行。
+    \item 3011 (T1, P6421)：不跳过，执行。
+  \end{itemize}
+  所有 update log 均不跳过。
+
+  \answer \textcolor{ansred}{E. None of the above}
+
+\item The first log entry to be undone is:\\
+  A. 3011 \quad B. 3010 \quad C. 3006 \quad D. 3005 \quad E. None of the above
+
+  \solution Undo 按 LastLSN 从大到小反向遍历 loser 事务的 prevLSN 链。
+  Loser 为 T2（LastLSN=3005）和 T4（LastLSN=3010）。
+
+  按 LastLSN 排序：T4(3010) > T2(3005)，先 undo T4 的 3010。
+
+  \answer \textcolor{ansred}{B. 3010}
+
+\item The LSN of the CLR (Compensation Log Record) for log entry 3005 is:\\
+  A. 3013 \quad B. 3014 \quad C. 3015 \quad D. 3016 \quad E. None of the above
+
+  \solution Undo 阶段按 LastLSN 降序处理 loser。
+  先 undo T4(LSN 3010) $\to$ 产生 CLR@3013。
+  再 undo T2(LSN 3005) $\to$ 产生 CLR@3014。
+  再沿 T2 的 prevLSN 链往上找：3005 是 T2 的最后一条，前一操作是 3003。
+
+  CLR@3013：undo LSN 3010；CLR@3014：undo LSN 3005。
+  所以 LSN 3005 对应的 CLR 的 LSN 是 3014。
+
+  \answer \textcolor{ansred}{B. 3014}
+
+\item After recovery completes, what are the values of 3462.1 and 6421.1?\\
+  A. 70, 10 \quad B. 30, 10 \quad C. 30, 100 \quad D. 70, 100 \quad
+  E. None of the above
+
+  \solution 追溯最终值：
+
+  \textbf{P3462.1}：日志序列为 T2 写入 3003(30$\to$40)、3005(40$\to$70)。
+  Redo 阶段从 RecLSN 起正向重做：3003 和 3005 均重做 $\to$ 当前=70。
+  但 T2 是 loser！Undo 阶段沿 prevLSN 链反向撤销：
+  undo 3005（恢复为 40）$\to$ undo 3003（恢复为 30）。
+  最终 3462.1 = \textbf{30}。
+
+  \textbf{P6421.1}：日志序列为 T1 写入
+  3000(10$\to$20)、3006(20$\to$80)、3011(80$\to$100)。
+  Redo 重做 3000、3006、3011 $\to$ 当前=100。
+  T1 是 winner（已 commit），不 undo。
+  最终 6421.1 = \textbf{100}。
+
+  \answer \textcolor{ansred}{C. 30, 100}
+
+\end{enumerate}
+
+\vfill
+\hrule
+\vspace{4pt}
+{\footnotesize \textcolor{ansred}{⚠ 本卷严格按照 CC98 论坛原始回忆整理，未改动原题。缺失数据处标注了 \texttt{[原卷此处数据缺失]} 或 \texttt{[原卷回忆细节有误]}。凡标注处，解答部分给出方法论而非具体数值。}}
+
+\end{document}
