@@ -1,0 +1,447 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\geometry{margin=2.2cm}
+
+\newcommand{\ans}{\par\noindent\textcolor{blue}{\textbf{解：}}}
+\newcommand{\lec}[1]{\textcolor{gray}{[lec-#1]}}
+
+\title{CS 2053M 计算机系统 III\\2023--2024 春夏学期 期末回忆卷}
+\author{整理自 CC98 论坛（linsaiya），题目不全，仅供参考}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\vspace{-8pt}
+\begin{center}
+\textbf{题型}：选择题 $15\times 2' = 30'$，大题 $6'+14'+10'+25'+15' = 70'$
+\end{center}
+
+\section*{一、选择题（共 15 道，每题 2'）}
+
+\begin{enumerate}[leftmargin=*,itemsep=8pt]
+
+\item （TLB 相关）下列关于 TLB 的说法，\textbf{错误}的是？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item TLB 是页表的专用 cache，缓存最近用过的 PTE
+    \item TLB 命中则地址翻译跳过页表 walk，延迟大幅降低
+    \item TLB 条目包含 VPN、PPN、保护位等
+    \item TLB miss 时不触发任何异常，硬件直接处理完毕
+  \end{enumerate}
+
+  \ans D。TLB miss 在某些架构上由硬件页表 walker 自动处理（如 x86），
+  但在 RISC-V 等架构上 TLB miss 会触发 page fault 异常由 OS 处理。
+  ``不触发任何异常'' 太绝对。 \lec{11}
+
+\item （Page size 相关）以下哪项会因页尺寸\textbf{变小}而受益？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item 时间局部性和空间局部性
+    \item TLB 覆盖范围
+    \item 虚拟内存分页的内部碎片
+    \item 预调页（Prepaging）
+  \end{enumerate}
+
+  \ans C。小页 $\to$ 内部碎片小（平均每进程浪费 $\tfrac12$ 页）。
+  A/B/D 均倾向大页（更大 TLB reach、更少 page fault、预调页更有效）。 \lec{09}
+
+\item （DMA 相关）以下关于 DMA 的说法，正确的是？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item DMA 需要 CPU 逐字节参与数据搬运
+    \item DMA 使外设可直接读写主存，释放 CPU 去干别的
+    \item DMA 只能用于磁盘 I/O，不能用于网卡
+    \item DMA 传输期间 CPU 必须暂停所有操作
+  \end{enumerate}
+
+  \ans B。DMA 控制器在外设和主存间直接搬数据，CPU 只在启动和结束时介入。
+  可用于磁盘、网卡、显卡等任何需要批量传输的外设。 \lec{13}
+
+\item （UMA/NUMA 相关）以下关于 UMA 和 NUMA 的说法，\textbf{错误}的是？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item UMA 中所有 CPU 访问所有内存的延迟相同
+    \item NUMA 中 CPU 访问本地内存比远程内存快
+    \item UMA 扩展性优于 NUMA，适合大规模多处理器
+    \item NUMA 需要 OS 感知内存拓扑以优化分配
+  \end{enumerate}
+
+  \ans C。UMA 的总线/交叉开关在 CPU 数量增多时成为瓶颈，
+  NUMA 通过分布式内存实现更好的可扩展性。 \lec{12,13}
+
+\item （Cache 映射方式）对于相同容量的 Cache，以下哪种映射方式
+  的\textbf{冲突缺失最少}？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item 直接映射（Direct Mapped）
+    \item 2-路组相联
+    \item 4-路组相联
+    \item 全相联（Fully Associative）
+  \end{enumerate}
+
+  \ans D。全相联无冲突缺失（任一 block 可放任意位置）。关联度越高冲突越少。 \lec{04,05}
+
+\item （写策略）采用写回（write-back）+ 写分配（write-allocate）的 Cache
+  在执行 write miss 时的行为是？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item 直接写主存，不调入 Cache
+    \item 先将 block 调入 Cache，再在 Cache 中写
+    \item 只写 Cache，不写主存，也不调入 block
+    \item 既写 Cache 又同时写主存
+  \end{enumerate}
+
+  \ans B。写分配：write miss 时先将 block 读入 Cache，再修改。
+  写回：只更新 Cache（标 dirty），替换时才写回主存。 \lec{05}
+
+\item （五级流水线）在经典五级流水线中，以下哪条指令序列会同时产生
+  RAW hazard 和 control hazard（无 forwarding、无分支预测）？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item \texttt{ADD x1,x2,x3; SUB x4,x1,x5}
+    \item \texttt{LW x1,0(x2); ADD x3,x1,x4; BEQ x3,x0,L1}
+    \item \texttt{ADD x1,x2,x3; ADD x4,x5,x6}
+    \item \texttt{BEQ x1,x2,L1; NOP; NOP}
+  \end{enumerate}
+
+  \ans B。LW $\to$ ADD 之间有 RAW（x1）；ADD $\to$ BEQ 之间有 RAW（x3）
+  且 BEQ 导致 control hazard。 \lec{02}
+
+\item （Cache 性能）某程序 CPI 为 2.0，其中 30\% 为 load/store 指令，
+  cache miss rate 为 5\%，miss penalty 为 50 周期。若将 miss rate 降至 2\%，
+  新的 CPI 约为？
+
+  \ans $\text{原 stall} = 0.3 \times 0.05 \times 50 = 0.75$，
+  $\text{CPI}_\text{old} = 2.0 + 0.75 = 2.75$。
+
+  $\text{新 stall} = 0.3 \times 0.02 \times 50 = 0.30$，
+  $\text{CPI}_\text{new} = 2.0 + 0.30 = \mathbf{2.30}$。 \lec{07}
+
+\item （SIMD/向量计算，原卷第 9 题）计算以下代码的循环体所需周期数。
+  \texttt{a, b, c} 均为 1\,byte 元素的数组。
+
+  \begin{verbatim}
+  for (i = 0; i < 524; i++) {
+      c[i] = a[i] + b[i];
+  }
+  \end{verbatim}
+
+  已知 ALU 的 8-bit 加法需 1 周期，64-bit 加法需 4 周期。
+  采用 64-bit 加法一次处理 8 个 byte。
+
+  \begin{enumerate}[label=\Alph*.]
+    \item 264
+    \item 268
+    \item 524
+    \item 48
+  \end{enumerate}
+
+  \ans A。$\lceil 524 / 8 \rceil = 66$ 次 64-bit 加法，
+  $66 \times 4 = \mathbf{264}$ 周期。 \lec{18}
+
+\item （页表相关）某系统 32-bit 虚拟地址，4\,KB 页面，采用两级页表，
+  每级 1024 项（每项 4\,B）。页表本身占多少物理内存？两级各多大？
+
+  \ans 每级 $1024 \times 4 = 4\,\text{KB}$（恰好一页）。
+  两级合计 8\,KB，但未用满的页表分支可不分配。 \lec{09}
+
+\item （Page Fault 相关，原卷第 13 题）假设有 3 个页框，初始为空。
+  引用串：\texttt{2,1,3,4,2,1,5,6,2,1,7,3,4,2,3}。
+  用 FIFO 替换算法，共发生几次 page fault？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item 11
+    \item 12
+    \item 13
+    \item 14
+  \end{enumerate}
+
+  \ans D。FIFO 模拟（3 页框）：
+
+  \begin{tabular}{c|c|c}
+  访问 & 页框（FIFO 队列） & PF \\
+  \midrule
+  2 & [2,\_,\_]   & 1 \\
+  1 & [2,1,\_]    & 2 \\
+  3 & [2,1,3]     & 3 \\
+  4 & [4,1,3]     & 4 (evict 2) \\
+  2 & [4,2,3]     & 5 (evict 1) \\
+  1 & [4,2,1]     & 6 (evict 3) \\
+  5 & [5,2,1]     & 7 (evict 4) \\
+  6 & [5,6,1]     & 8 (evict 2) \\
+  2 & [5,6,2]     & 9 (evict 1) \\
+  1 & [1,6,2]     & 10 (evict 5) \\
+  7 & [1,7,2]     & 11 (evict 6) \\
+  3 & [1,7,3]     & 12 (evict 2) \\
+  4 & [4,7,3]     & 13 (evict 1) \\
+  2 & [4,2,3]     & 14 (evict 7) \\
+  3 & [4,2,3]     & hit \\
+  \end{tabular}
+
+  共 \textbf{14 次} page fault。 \lec{10}
+
+\item （缓存 vs TLB）TLB 是？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item 一个页表
+    \item 一个缓存主存数据的 buffer（cache）
+    \item 一个缓存虚拟地址到物理地址映射关系（PTE）的 buffer（cache）
+    \item 一种页替换算法
+  \end{enumerate}
+
+  \ans C。TLB（Translation Lookaside Buffer）是页表的专用 cache，
+  缓存最近使用过的 PTE（VPN $\to$ PPN 映射），加速地址翻译。
+  它不存数据内容（B 错），不是页表本身（A 错），也不是替换算法（D 错）。 \lec{11}
+
+\item （综合判断）以下关于虚拟内存的说法，\textbf{正确}的是？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item 虚拟内存的大小由物理内存容量决定
+    \item 每个进程有自己独立的虚拟地址空间
+    \item 虚拟内存只能用于磁盘交换，不能用于其他目的
+    \item 虚拟地址和物理地址总是一一对应
+  \end{enumerate}
+
+  \ans B。虚拟地址空间大小由 CPU 位宽决定（如 48-bit），与物理内存无关。
+  虚拟内存的核心是地址空间隔离 + 按需调页，不只限于 swap。
+  多个虚拟页可映射到同一物理页（共享）。 \lec{10}
+
+\item （综合判断）以下关于 Tomasulo 算法的说法，\textbf{错误}的是？
+
+  \begin{enumerate}[label=\Alph*.]
+    \item Register Rename 通过 Reservation Station 和 ROB 实现
+    \item Tomasulo 可消除 WAR 和 WAW hazard
+    \item Scoreboard 和 Tomasulo 都支持 Speculation
+    \item ROB 保证精确异常和按序提交
+  \end{enumerate}
+
+  \ans C。Scoreboard 不支持 speculation——它不做分支预测，也没有 ROB。
+  只有 Tomasulo + ROB 才支持 Hardware-Based Speculation。 \lec{03}
+
+\end{enumerate}
+
+\newpage
+\section*{二、大题}
+
+\subsection*{1. Cache 性能与 Speedup 计算（6'）}
+
+当全部 Cache hit 时，CPI 为 1.0。指令中有 50\% 的 ld/sd 指令。
+Cache 在 ld/sd 上的 miss rate 为 3\%，miss penalty 为 20 周期。
+当指令全部 Cache hit 时，求 Speedup。
+
+\ans
+\[
+\text{Memory stall cycles} = \text{IC} \times 0.5 \times 0.03 \times 20
+= 0.3 \cdot \text{IC}
+\]
+
+\[
+\text{CPI}_\text{actual} = 1.0 + 0.3 = 1.3,\qquad
+\text{CPI}_\text{ideal} = 1.0
+\]
+
+\[
+\text{Speedup} = \frac{\text{CPI}_\text{actual}}{\text{CPI}_\text{ideal}}
+= \frac{1.3}{1.0} = \mathbf{1.3}
+\]
+
+\lec{07}
+
+\subsection*{2. Scoreboard / Hardware-Based Speculation（14'）}
+
+运行以下指令。ld 需 1 周期，fadd/fsub 需 2 周期，fdiv 需 20 周期。
+
+\begin{verbatim}
+fld    f6, 34(R2)
+fld    f2, 45(R3)
+fadd.d f6, f8, f2
+fdiv.d f10, f0, f4
+fsub.d f0, f2, f8
+\end{verbatim}
+
+（原卷后续还有 3 条类似指令，此处按回忆还原）
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item 找出指令中的 WAW 和 WAR。
+  \item 指令中的 WAW 和 WAR 在 Scoreboard 中会导致 stall 吗？在
+        Hardware-Based Speculation（Tomasulo + ROB）中呢？
+  \item 在 Hardware-Based Speculation 下（假设每种 FU 有独立 RS），
+        写出每条指令各阶段对应的 Cycle。
+\end{enumerate}
+
+\ans
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item
+  \begin{itemize}[nosep]
+    \item \textbf{WAW}：\texttt{fld f6} 和 \texttt{fadd.d f6} 都写 \texttt{f6}。
+    \item \textbf{WAR}：\texttt{fdiv.d f10, f0, f4} 读 \texttt{f0}，
+          \texttt{fsub.d f0, f2, f8} 写 \texttt{f0}。
+  \end{itemize}
+
+  \item
+  \begin{itemize}[nosep]
+    \item \textbf{Scoreboard}：\textbf{会 stall}。Scoreboard 不做寄存器重命名，
+          WAW 和 WAR 都需等待前序指令完成写入后才能发射后续指令。
+    \item \textbf{Tomasulo + ROB}：\textbf{不会 stall}。寄存器重命名将
+          \texttt{f6} 和 \texttt{f0} 映射到不同物理寄存器/ROB 条目，
+          WAW 和 WAR 被消除。
+  \end{itemize}
+
+  \item 在 HW Speculation 下（各 FU 独立 RS），指令在 ROB 中按序提交。
+
+  \vspace{4pt}
+  \begin{tabular}{c|c|c|c|c|c}
+  inst & operands & issue & execute & write result & commit \\
+  \midrule
+  fld   f6,34(R2) & --    & 1  & 1   & 2  & 2 \\
+  fld   f2,45(R3) & --    & 2  & 2   & 3  & 3 \\
+  fadd.d f6,f8,f2& f8,f2 & 4  & 4--5& 6  & 6 \\
+  fdiv.d f10,f0,f4& f0,f4& 5  & 5--24& 25 & 25 \\
+  fsub.d f0,f2,f8& f2,f8 & 7  & 7--8& 9  & 26 \\
+  \end{tabular}
+
+  \vspace{4pt}
+  \noindent 说明：
+  \begin{itemize}[nosep]
+    \item fadd.d 的 f2 在 c3 ready，f8 假设就绪，issue@c4。
+    \item fdiv.d 与 fadd.d 使用不同 FU，可 c5 并行发射（无 WAW，因重命名）。
+    \item fsub.d 等 FP adder RS 空出（fadd.d WB@c6 释放）后在 c7 发射。
+    \item fsub.d WB@c9，但 ROB 中排在 fdiv.d（ROB\#4）之后；
+          fdiv.d 直到 c25 才 WB/Commit，因此 fsub.d 的 Commit 被
+          \textbf{阻塞到 c26}（ROB 按序提交）。
+  \end{itemize}
+
+  \noindent 这是 Tomasulo + ROB 的经典考点：WB 可乱序，但\textbf{Commit 必须按序}，
+  长延迟指令会阻塞后续已完成的指令提交。 \lec{03}
+\end{enumerate}
+
+\subsection*{3. Cube / 互连网络相关计算（10'）}
+
+（原卷回忆缺失具体题目描述，仅记为 ``Cube 相关计算……完全没预习这一部分''。
+以下根据 SYS3 课内知识点重构。）
+
+\ans 知识点：超立方体（Hypercube）互连网络。
+
+$n$ 维超立方体：$N = 2^n$ 个节点，每个节点度数为 $n$，
+直径 $= n$，总边数 $= n \cdot 2^{n-1}$，对分宽度 $= 2^{n-1}$。
+
+路由：从源到目的，逐位翻转不同的二进制位（XOR 决定路径）。 \lec{18,19}\ \textcolor{red}{⚠ 课件无独立章节，疑为补充内容}
+
+\subsection*{4. Virtual Memory Paging（25'）}
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item 页大小 4\,KB，给出 page table（0--15 共 16 项），
+        page table 高位为 1 代表该 page 有效。给定三个 VA，求对应的 PA
+        或标注 invalid address。
+
+        \begin{verbatim}
+        VA: 0x0000b9d5 (decimal: 47573)
+        VA: 0x00006e31 (decimal: 28209)
+        VA: 0x00002685 (decimal: 9861)
+        \end{verbatim}
+
+        （原卷此处附有 16 项页表的具体值，回忆缺失。
+         以下为解题方法，数据仅供示意。）
+
+        \ans 4\,KB 页 $\to$ offset = 12\,bit，VPN = 4\,bit（16 项）。
+
+        以 \texttt{0x0000b9d5} 为例：
+        VPN = \texttt{0xb}（高 4 位），offset = \texttt{0x9d5}。
+        查页表第 11 项，若 valid，PA = (PFN $\ll$ 12) $|$ offset；
+        若 invalid $\to$ page fault。
+
+  \item
+  \begin{enumerate}[label=(\alph*)]
+    \item Physical memory 有 128 个 page，每 page 32\,byte。
+          求 VA、PA 各自的总位数、page offset 位数、VPN/PFN 位数。
+
+    \item 128 个 page 的内容如下（原卷此处省略 3 页数据）。
+          其中 page 108 为 VA 输入的第一级地址。
+          给出两个 16-bit VA，求对应的 PA 的内容值，
+          或标注 invalid address。
+
+          \begin{verbatim}
+          VA: 0x611c
+          VA: 0x3d95
+          \end{verbatim}
+
+          参考例子：
+          \begin{verbatim}
+          VA: 0x17c3 -> PTE: 0x05 -> Value: d4
+              (Valid 1, PFN: 0x54, decimal: 84)
+          PDE: 0x1e -> Value: 0x9c
+              (Valid 1, PFN: 0x1c, decimal: 28)
+          PDE: 0x03 -> Value: 0x1c
+          \end{verbatim}
+  \end{enumerate}
+\end{enumerate}
+
+\ans
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*]
+  \item \textbf{方法}：VPN = VA $\gg$ 12（对于 4\,KB 页），查页表得 PFN。
+        若 valid 位为 1，PA = (PFN $\ll$ 12) $|$ (VA \& 0xFFF)；
+        若为 0，invalid。具体数值依赖缺失的页表内容。
+
+  \item
+  \begin{enumerate}[label=(\alph*)]
+    \item 128 pages $\to$ PFN 需 $\log_2 128 = 7$\,bit。
+          每页 32\,byte $\to$ offset 需 $\log_2 32 = 5$\,bit。
+          PA = PFN(7) + offset(5) = \textbf{12\,bit}。
+
+          VA 位数需大于等于 PA，题目给定 16-bit VA：
+          offset = 5\,bit，VPN = 16 -- 5 = \textbf{11\,bit}。
+
+          若采用两级页表：VPN[1] 和 VPN[0] 各占若干 bit。
+
+    \item 两级页表翻译流程（16-bit VA, 32\,B 页 $\to$ offset 5 bit,
+          VPN 11 bit）：
+
+          \texttt{0x611c} = \texttt{0110 0001 0001 1100}$_2$：
+          offset = \texttt{0x1c} (5 bit)，
+          VPN = \texttt{0x30c} (11 bit)，拆为 PDE index + PTE index。
+
+          查 page 108（PDE 根）$\to$ 得二级页表 PFN $\to$
+          查二级 PTE $\to$ 得数据 PFN $\to$ PA = PFN $\ll$ 5 $|$ offset。
+
+          与参考例子同理，具体值依赖题目所给页表数据。 \lec{09,10,11}
+  \end{enumerate}
+\end{enumerate}
+
+\subsection*{5. File System（15'）}
+
+原卷前 3 页介绍了 \texttt{mkdir()}, \texttt{create()}, \texttt{link()}
+对文件系统的影响，随后用一页给出示例操作序列，要求补写 5 个操作使得
+文件系统状态与给定结果一致。
+
+\ans 考点总结（基于 UNIX 文件系统语义）：
+
+\begin{itemize}[nosep]
+  \item \texttt{mkdir("foo")}：创建目录 \texttt{foo}，分配 inode + 数据块，
+        在其中写入 \texttt{.}（自身）和 \texttt{..}（父目录）两项。
+        父目录新增条目 \texttt{foo $\to$ inode\#}。
+  \item \texttt{create("bar")}：创建普通文件 \texttt{bar}，分配 inode，
+        父目录新增条目 \texttt{bar $\to$ inode\#}。
+        文件初始为空（size = 0，无数据块）。
+  \item \texttt{link("old", "new")}（硬链接）：在目标目录中新增条目
+        \texttt{new $\to$ inode\#(old)}，inode 的 link count +1。
+        不分配新 inode，不复制数据。
+  \item \texttt{symlink("old", "new")}（符号链接）：创建新文件 \texttt{new}，
+        inode 标记为符号链接类型，数据块存目标路径字符串。
+\end{itemize}
+
+\noindent 解题思路：追踪每次操作后 inode 表（新分配/复用）和目录内容的变化，
+确保最终状态与目标一致（硬链接 vs 符号链接的选择是关键区分点）。 \lec{14,15,16}
+
+\end{document}
